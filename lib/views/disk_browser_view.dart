@@ -1,19 +1,26 @@
 import 'dart:async';
+import 'dart:io' show Directory;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
-import '../core/theme/app_colors.dart';
+
+import '../core/utils/path_rules.dart';
 import '../core/utils/size_formatter.dart';
 import '../models/saved_location.dart';
 import '../models/storage_item.dart';
 import '../models/user_settings.dart';
+import '../services/deep_scan.dart';
 import '../services/duplicate_finder_service.dart';
+import '../services/folder_size_scan.dart';
+import '../services/item_view_filter.dart';
 import '../services/settings_service.dart';
 import '../services/storage_scanner_service.dart';
 import 'widgets/batch_delete_bar.dart';
 import 'widgets/breadcrumb_bar.dart';
 import 'widgets/column_header_row.dart';
-import 'widgets/delete_confirm_dialog.dart';
+import 'widgets/browser_status_widgets.dart';
+import 'widgets/delete_flow.dart';
 import 'widgets/storage_item_tile.dart';
 
 /// Interactive disk usage explorer and cleaner with table header sorting, progressive folder scanning,
@@ -25,7 +32,9 @@ class DiskBrowserView extends StatefulWidget {
   final String searchQuery;
   final bool isSelectionMode;
   final ValueChanged<bool> onSelectionModeChanged;
-  final VoidCallback onRescanRequested;
+
+  /// Capacity of the volume that contains [rootPaths], used by the "Total Disk Capacity" bar mode.
+  final int? driveTotalBytes;
 
   const DiskBrowserView({
     super.key,
@@ -35,51 +44,88 @@ class DiskBrowserView extends StatefulWidget {
     required this.searchQuery,
     required this.isSelectionMode,
     required this.onSelectionModeChanged,
-    required this.onRescanRequested,
+    this.driveTotalBytes,
   });
 
   @override
-  State<DiskBrowserView> createState() => _DiskBrowserViewState();
+  State<DiskBrowserView> createState() => DiskBrowserViewState();
 }
 
-class _DiskBrowserViewState extends State<DiskBrowserView> {
+class DiskBrowserViewState extends State<DiskBrowserView> {
+  static const Duration _flushInterval = Duration(milliseconds: 150);
+
   late String _currentPath;
   List<StorageItem> _items = [];
-  bool _isLoading = false;
+  Map<String, int> _indexByPath = {};
   final Set<String> _selectedPaths = {};
+
+  // Scan state
+  int _generation = 0;
+  FolderSizeScan? _folderScan;
   StreamSubscription<FolderSizeUpdate>? _folderScanSub;
+  DeepScan? _deepScan;
+  StreamSubscription<DeepScanBatch>? _deepScanSub;
+  bool _isDeepScanning = false;
+  bool _scanHadErrors = false;
+  bool _storageGone = false;
+
+  // Batched UI updates so streaming results never cause a rebuild storm
+  final Map<String, FolderSizeUpdate> _pendingFolderUpdates = {};
+  final List<StorageItem> _pendingDeepItems = [];
+  Timer? _flushTimer;
+
+  // Cached filtered + sorted list (recomputed only when its inputs change)
+  int _itemsRevision = 0;
+  int? _visibleSignature;
+  List<StorageItem> _visibleCache = const [];
+  int _maxVisibleSize = 1;
+  int _itemsTotalBytes = 0;
 
   double _basePinchScale = 1.0;
 
   @override
   void initState() {
     super.initState();
-    _currentPath = widget.rootPaths.isNotEmpty ? widget.rootPaths.first : '/storage/emulated/0';
+    _currentPath = widget.rootPaths.isNotEmpty
+        ? widget.rootPaths.first
+        : '/storage/emulated/0';
     _scanCurrentPath();
   }
 
   @override
   void dispose() {
-    _folderScanSub?.cancel();
+    _cancelScans();
+    _flushTimer?.cancel();
     super.dispose();
   }
 
   @override
   void didUpdateWidget(DiskBrowserView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final old = oldWidget.settings;
+    final now = widget.settings;
+
     final rootPathsChanged = !listEquals(widget.rootPaths, oldWidget.rootPaths);
-    final includeSubfoldersChanged = widget.settings.includeSubfolders != oldWidget.settings.includeSubfolders;
-    final showHiddenChanged = widget.settings.showHiddenFiles != oldWidget.settings.showHiddenFiles;
-    final criteriaChanged = widget.settings.duplicateCriteria.matchSize != oldWidget.settings.duplicateCriteria.matchSize ||
-        widget.settings.duplicateCriteria.matchName != oldWidget.settings.duplicateCriteria.matchName ||
-        widget.settings.duplicateCriteria.matchTimestamp != oldWidget.settings.duplicateCriteria.matchTimestamp;
+    final scanInputsChanged =
+        now.includeSubfolders != old.includeSubfolders ||
+        now.showHiddenFiles != old.showHiddenFiles ||
+        !listEquals(now.excludedPatterns, old.excludedPatterns);
+    final criteriaChanged =
+        now.duplicateCriteria.matchSize != old.duplicateCriteria.matchSize ||
+        now.duplicateCriteria.matchName != old.duplicateCriteria.matchName ||
+        now.duplicateCriteria.matchTimestamp !=
+            old.duplicateCriteria.matchTimestamp;
+
+    if (oldWidget.isSelectionMode && !widget.isSelectionMode) {
+      _selectedPaths.clear();
+    }
 
     if (rootPathsChanged) {
       if (widget.rootPaths.isNotEmpty) {
         _currentPath = widget.rootPaths.first;
       }
       _scanCurrentPath();
-    } else if (includeSubfoldersChanged || showHiddenChanged) {
+    } else if (scanInputsChanged) {
       _scanCurrentPath();
     } else if (criteriaChanged) {
       // Re-evaluate duplicates on existing items
@@ -88,169 +134,270 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
           items: _items,
           criteria: widget.settings.duplicateCriteria,
         );
+        _itemsChanged();
       });
     }
   }
 
-  Future<void> _scanCurrentPath() async {
+  // ---------------------------------------------------------------------------
+  // Public API used by MainScreen
+  // ---------------------------------------------------------------------------
+
+  /// Starts a fresh scan of the current folder (for example after a storage volume was mounted).
+  void rescan() => _scanCurrentPath();
+
+  /// Handles the system back gesture. Returns true if it was consumed.
+  bool handleBack() {
+    if (widget.isSelectionMode) {
+      widget.onSelectionModeChanged(false);
+      setState(_selectedPaths.clear);
+      return true;
+    }
+    if (_canNavigateUp) {
+      _navigateUp();
+      return true;
+    }
+    return false;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Scanning
+  // ---------------------------------------------------------------------------
+
+  void _cancelScans() {
     _folderScanSub?.cancel();
+    _folderScanSub = null;
+    _folderScan?.cancel();
+    _folderScan = null;
+    _deepScanSub?.cancel();
+    _deepScanSub = null;
+    _deepScan?.cancel();
+    _deepScan = null;
+    _pendingFolderUpdates.clear();
+    _pendingDeepItems.clear();
+  }
+
+  void _itemsChanged() {
+    _itemsRevision++;
+    _indexByPath = {for (var i = 0; i < _items.length; i++) _items[i].path: i};
+  }
+
+  Future<void> _scanCurrentPath() async {
+    _cancelScans();
+    _generation++;
+    final generation = _generation;
+
+    setState(() {
+      _selectedPaths.clear();
+      _storageGone = false;
+      _scanHadErrors = false;
+    });
 
     if (widget.settings.includeSubfolders) {
-      setState(() => _isLoading = true);
-      final pathsToScan = widget.rootPaths.length > 1 ? widget.rootPaths : [_currentPath];
-
-      final deepItems = await StorageScannerService.scanDeepRecursive(
-        rootPaths: pathsToScan,
-        showHidden: widget.settings.showHiddenFiles,
-        excludedPatterns: widget.settings.excludedPatterns,
-        duplicateCriteria: widget.settings.duplicateCriteria,
-      );
-
-      if (mounted) {
-        setState(() {
-          _items = deepItems;
-          _isLoading = false;
-          _selectedPaths.clear();
-        });
-      }
-      return;
+      await _startDeepScan(generation);
+    } else {
+      _startFolderScan(generation);
     }
+  }
 
-    // Step 1: Immediately show shallow directory entries (< 5ms)
-    final immediateItems = StorageScannerService.getImmediateShallowItems(
+  void _startFolderScan(int generation) {
+    var listing = StorageScannerService.listDirectory(
       path: _currentPath,
       showHidden: widget.settings.showHiddenFiles,
       excludedPatterns: widget.settings.excludedPatterns,
     );
 
-    // Tag duplicates in shallow directory view
+    if (!listing.pathExists) {
+      // The folder vanished (deleted elsewhere or storage removed): climb to the nearest folder that still exists.
+      final fallback = _nearestExistingPath();
+      if (fallback == null) {
+        setState(() {
+          _items = [];
+          _isDeepScanning = false;
+          _storageGone = true;
+          _itemsChanged();
+        });
+        return;
+      }
+      _currentPath = fallback;
+      listing = StorageScannerService.listDirectory(
+        path: _currentPath,
+        showHidden: widget.settings.showHiddenFiles,
+        excludedPatterns: widget.settings.excludedPatterns,
+      );
+    }
+
     final itemsWithDuplicates = DuplicateFinderService.markDuplicates(
-      items: immediateItems,
+      items: listing.items,
       criteria: widget.settings.duplicateCriteria,
     );
 
     setState(() {
       _items = itemsWithDuplicates;
-      _isLoading = false;
-      _selectedPaths.clear();
+      _isDeepScanning = false;
+      _scanHadErrors = listing.hadErrors;
+      _itemsChanged();
     });
 
-    // Step 2: Progressively calculate subfolder sizes in background
-    final dirPathsToScan = immediateItems.where((i) => i.isDirectory).map((i) => i.path).toList();
-    if (dirPathsToScan.isEmpty) return;
+    final dirPaths = listing.items
+        .where((i) => i.isDirectory)
+        .map((i) => i.path)
+        .toList();
+    if (dirPaths.isEmpty) return;
 
-    _folderScanSub = StorageScannerService.calculateFolderSizesProgressive(
-      dirPaths: dirPathsToScan,
+    final scan = FolderSizeScan(
+      dirPaths: dirPaths,
       excludedPatterns: widget.settings.excludedPatterns,
-    ).listen((update) {
-      if (!mounted) return;
-      setState(() {
-        final index = _items.indexWhere((i) => i.path == update.path);
-        if (index != -1) {
-          _items[index] = _items[index].copyWith(
-            size: update.size,
-            childCount: update.childCount,
-            isScanning: false,
-          );
-        }
-      });
+    );
+    _folderScan = scan;
+    _folderScanSub = scan.updates.listen((update) {
+      if (!mounted || generation != _generation) return;
+      _pendingFolderUpdates[update.path] = update;
+      if (update.missing && !Directory(_currentPath).existsSync()) {
+        // The storage went away while measuring: start over so the user gets a clear state.
+        _scanCurrentPath();
+        return;
+      }
+      _scheduleFlush();
+    });
+    scan.start();
+  }
+
+  Future<void> _startDeepScan(int generation) async {
+    setState(() {
+      _items = [];
+      _isDeepScanning = true;
+      _itemsChanged();
+    });
+
+    final paths = widget.rootPaths.length > 1
+        ? widget.rootPaths
+        : [_currentPath];
+    final scan = DeepScan(
+      rootPaths: paths,
+      showHidden: widget.settings.showHiddenFiles,
+      excludedPatterns: widget.settings.excludedPatterns,
+    );
+    _deepScan = scan;
+    _deepScanSub = scan.batches.listen((batch) {
+      if (!mounted || generation != _generation) return;
+      _pendingDeepItems.addAll(batch.items);
+      if (batch.hadErrors) _scanHadErrors = true;
+      if (batch.done) {
+        _finishDeepScan(batch.rootMissing);
+      } else {
+        _scheduleFlush();
+      }
+    });
+    await scan.start();
+  }
+
+  void _finishDeepScan(bool rootMissing) {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    setState(() {
+      _items.addAll(_pendingDeepItems);
+      _pendingDeepItems.clear();
+      _items = DuplicateFinderService.markDuplicates(
+        items: _items,
+        criteria: widget.settings.duplicateCriteria,
+      );
+      _isDeepScanning = false;
+      _storageGone = rootMissing && _items.isEmpty;
+      _itemsChanged();
     });
   }
 
-  List<StorageItem> get _visibleItems {
-    final combinedSearch = widget.searchQuery.isNotEmpty
-        ? widget.searchQuery
-        : widget.settings.customFilterText.trim();
+  void _scheduleFlush() {
+    _flushTimer ??= Timer(_flushInterval, _flush);
+  }
 
-    var list = _items.where((item) {
-      // 1. Text Search / Custom extension filter
-      if (combinedSearch.isNotEmpty) {
-        final query = combinedSearch.toLowerCase();
-        final matchesName = item.name.toLowerCase().contains(query);
-        final matchesExt = item.extension.toLowerCase().contains(query);
-        if (!matchesName && !matchesExt) return false;
+  void _flush() {
+    _flushTimer = null;
+    if (!mounted) return;
+    setState(() {
+      if (_pendingDeepItems.isNotEmpty) {
+        _items.addAll(_pendingDeepItems);
+        _pendingDeepItems.clear();
+        _itemsRevision++;
       }
-
-      // 2. Hidden & protected files check
-      if (!widget.settings.showHiddenFiles && item.name.startsWith('.')) {
-        return false;
-      }
-
-      // 3. Independent "Only show duplicates" check
-      if (widget.settings.showDuplicatesOnly) {
-        if (item.isDirectory || !item.isDuplicate) return false;
-      }
-
-      // 4. "What's Shown" - Opt-out Category Toggles (All active by default)
-      if (!item.isDirectory) {
-        final ext = item.extension.toLowerCase();
-
-        // Images
-        if (!widget.settings.showImages &&
-            const ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.dng', '.raw', '.gif', '.bmp', '.svg'].contains(ext)) {
-          return false;
+      if (_pendingFolderUpdates.isNotEmpty) {
+        for (final update in _pendingFolderUpdates.values) {
+          final index = _indexByPath[update.path];
+          if (index == null || index >= _items.length) continue;
+          _items[index] = _items[index].copyWith(
+            size: update.size,
+            childCount: update.childCount,
+            isScanning: !update.isFinal,
+            hasErrors: update.hadErrors,
+          );
         }
-
-        // Videos
-        if (!widget.settings.showVideos &&
-            const ['.mp4', '.mkv', '.mov', '.avi', '.webm', '.3gp', '.ts', '.m4v'].contains(ext)) {
-          return false;
-        }
-
-        // Audio
-        if (!widget.settings.showAudio &&
-            const ['.mp3', '.flac', '.m4a', '.wav', '.ogg', '.opus', '.aac', '.wma'].contains(ext)) {
-          return false;
-        }
-
-        // Documents
-        if (!widget.settings.showDocuments &&
-            const ['.pdf', '.doc', '.docx', '.txt', '.epub', '.xlsx', '.xls', '.pptx', '.ppt', '.csv', '.md'].contains(ext)) {
-          return false;
-        }
-
-        // Archives & APKs
-        if (!widget.settings.showArchives &&
-            const ['.zip', '.rar', '.7z', '.tar', '.gz', '.apk', '.obb', '.bz2', '.xz'].contains(ext)) {
-          return false;
-        }
+        _pendingFolderUpdates.clear();
+        _itemsRevision++;
       }
-
-      return true;
-    }).toList();
-
-    // Table Column Sorting
-    list.sort((a, b) {
-      // When sorting by size descending: folders still scanning appear on top!
-      if (widget.settings.sortColumn == SortColumn.size && widget.settings.sortDescending) {
-        if (a.isScanning && !b.isScanning) return -1;
-        if (!a.isScanning && b.isScanning) return 1;
-      }
-
-      if (!widget.settings.includeSubfolders) {
-        // In hierarchy mode, keep directories grouped on top
-        if (a.isDirectory && !b.isDirectory) return -1;
-        if (!a.isDirectory && b.isDirectory) return 1;
-      }
-
-      final int cmp;
-      switch (widget.settings.sortColumn) {
-        case SortColumn.name:
-          cmp = a.name.toLowerCase().compareTo(b.name.toLowerCase());
-          break;
-        case SortColumn.date:
-          final dateA = a.lastModified ?? DateTime.fromMillisecondsSinceEpoch(0);
-          final dateB = b.lastModified ?? DateTime.fromMillisecondsSinceEpoch(0);
-          cmp = dateA.compareTo(dateB);
-          break;
-        case SortColumn.size:
-          cmp = a.size.compareTo(b.size);
-          break;
-      }
-
-      return widget.settings.sortDescending ? -cmp : cmp;
     });
+  }
 
+  /// Closest ancestor of the current folder (inside the scan root) that still exists, or null if none.
+  String? _nearestExistingPath() {
+    final root = widget.rootPaths.isNotEmpty ? widget.rootPaths.first : null;
+    var path = _currentPath;
+    while (true) {
+      try {
+        if (Directory(path).existsSync()) return path;
+      } catch (_) {
+        return null;
+      }
+      if (root == null || path == root) return null;
+      final slash = path.lastIndexOf('/');
+      if (slash <= 0) return null;
+      path = path.substring(0, slash);
+      if (!PathRules.isUnder(path, root)) return null;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Filtering & sorting (cached)
+  // ---------------------------------------------------------------------------
+
+  List<StorageItem> _visibleItems() {
+    final s = widget.settings;
+    final signature = Object.hashAll([
+      _itemsRevision,
+      widget.searchQuery,
+      s.customFilterText,
+      s.showImages,
+      s.showVideos,
+      s.showAudio,
+      s.showDocuments,
+      s.showArchives,
+      s.includeSubfolders,
+      s.showHiddenFiles,
+      s.showDuplicatesOnly,
+      s.sortColumn,
+      s.sortDescending,
+    ]);
+    if (signature == _visibleSignature) return _visibleCache;
+
+    final list = ItemViewFilter.apply(
+      items: _items,
+      settings: s,
+      searchQuery: widget.searchQuery,
+    );
+
+    var max = 1;
+    for (final item in list) {
+      if (item.size > max) max = item.size;
+    }
+    var total = 0;
+    for (final item in _items) {
+      total += item.size;
+    }
+
+    _visibleSignature = signature;
+    _visibleCache = list;
+    _maxVisibleSize = max;
+    _itemsTotalBytes = total;
     return list;
   }
 
@@ -263,47 +410,53 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
     SettingsService.saveSettings(updated);
   }
 
-  int get _maxItemSize {
-    final visible = _visibleItems;
-    if (visible.isEmpty) return 1;
-    return visible.map((e) => e.size).reduce((a, b) => a > b ? a : b);
-  }
-
-  int get _currentFolderTotalBytes {
-    return _items.fold<int>(0, (sum, i) => sum + i.size);
-  }
-
   double _computeRatio(StorageItem item) {
     switch (widget.settings.barScalingMode) {
       case BarScalingMode.largestItem:
-        return SizeFormatter.calculateRatio(item.size, _maxItemSize);
+        return SizeFormatter.calculateRatio(item.size, _maxVisibleSize);
       case BarScalingMode.folderTotal:
-        return SizeFormatter.calculateRatio(item.size, _currentFolderTotalBytes);
+        return SizeFormatter.calculateRatio(item.size, _itemsTotalBytes);
       case BarScalingMode.driveTotal:
-        return SizeFormatter.calculateRatio(item.size, 64 * 1024 * 1024 * 1024);
+        return SizeFormatter.calculateRatio(
+          item.size,
+          widget.driveTotalBytes ?? _itemsTotalBytes,
+        );
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Navigation & selection
+  // ---------------------------------------------------------------------------
+
+  bool get _canNavigateUp =>
+      !widget.settings.includeSubfolders &&
+      _currentPath != '/' &&
+      (widget.rootPaths.isEmpty || !widget.rootPaths.contains(_currentPath));
+
+  void _navigateTo(String path) {
+    setState(() => _currentPath = path);
+    _scanCurrentPath();
+  }
+
+  void _navigateUp() {
+    final slash = _currentPath.lastIndexOf('/');
+    final parent = slash <= 0 ? '/' : _currentPath.substring(0, slash);
+    _navigateTo(parent);
   }
 
   void _onItemTap(StorageItem item) {
     if (widget.isSelectionMode) {
       _toggleSelection(item.path);
+    } else if (item.isDirectory) {
+      _navigateTo(item.path);
     } else {
-      if (item.isDirectory) {
-        setState(() {
-          _currentPath = item.path;
-        });
-        _scanCurrentPath();
-      } else {
-        OpenFilex.open(item.path);
-      }
+      OpenFilex.open(item.path);
     }
   }
 
   void _toggleSelection(String path) {
     setState(() {
-      if (_selectedPaths.contains(path)) {
-        _selectedPaths.remove(path);
-      } else {
+      if (!_selectedPaths.remove(path)) {
         _selectedPaths.add(path);
       }
     });
@@ -311,84 +464,91 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
 
   void _selectAll() {
     setState(() {
-      _selectedPaths.addAll(_visibleItems.map((e) => e.path));
+      _selectedPaths.addAll(_visibleItems().map((e) => e.path));
     });
   }
 
   void _deselectAll() {
-    setState(() {
-      _selectedPaths.clear();
-    });
+    setState(_selectedPaths.clear);
   }
 
-  void _confirmBatchDelete() {
-    final selectedItems = _items.where((i) => _selectedPaths.contains(i.path)).toList();
+  // ---------------------------------------------------------------------------
+  // Delete
+  // ---------------------------------------------------------------------------
+
+  void _showMessage(String text) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(text), duration: const Duration(seconds: 3)),
+      );
+  }
+
+  Future<void> _confirmBatchDelete() async {
+    final selectedItems = _items
+        .where((i) => _selectedPaths.contains(i.path))
+        .toList();
     if (selectedItems.isEmpty) return;
-
-    showDialog(
-      context: context,
-      builder: (context) => DeleteConfirmDialog(
-        selectedItems: selectedItems,
-        onConfirmDelete: () async {
-          await StorageScannerService.deleteItems(selectedItems.map((e) => e.path).toList());
-          widget.onSelectionModeChanged(false);
-          _scanCurrentPath();
-        },
-      ),
-    );
+    final attempted = await DeleteFlow.run(context, selectedItems);
+    if (!attempted || !mounted) return;
+    widget.onSelectionModeChanged(false);
+    _scanCurrentPath();
   }
+
+  // ---------------------------------------------------------------------------
 
   void _toggleFavoriteFolder(StorageItem folder) {
-    final existingIndex = widget.settings.locations.indexWhere((l) => l.path == folder.path);
-    final updatedLocations = List<SavedLocation>.from(widget.settings.locations);
+    final existingIndex = widget.settings.locations.indexWhere(
+      (l) => l.path == folder.path,
+    );
+    final updatedLocations = List<SavedLocation>.from(
+      widget.settings.locations,
+    );
 
     if (existingIndex != -1) {
       updatedLocations.removeAt(existingIndex);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Removed "${folder.name}" from favorites'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      _showMessage('Removed "${folder.name}" from favorites');
     } else {
-      updatedLocations.add(SavedLocation(
-        id: 'fav_${folder.path}',
-        name: folder.name,
-        path: folder.path,
-        type: 'favorite',
-      ));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Saved "${folder.name}" to top-left menu favorites'),
-          duration: const Duration(seconds: 2),
+      updatedLocations.add(
+        SavedLocation(
+          id: 'fav_${folder.path}',
+          name: folder.name,
+          path: folder.path,
+          type: 'favorite',
         ),
       );
+      _showMessage('Saved "${folder.name}" to top-left menu favorites');
     }
 
-    final updatedSettings = widget.settings.copyWith(locations: updatedLocations);
+    final updatedSettings = widget.settings.copyWith(
+      locations: updatedLocations,
+    );
     widget.onSettingsChanged(updatedSettings);
     SettingsService.saveSettings(updatedSettings);
     setState(() {});
   }
 
+  // ---------------------------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final visible = _visibleItems;
+    final visible = _visibleItems();
     final totalSelectedBytes = _items
         .where((i) => _selectedPaths.contains(i.path))
         .fold<int>(0, (sum, i) => sum + i.size);
-
-    final canNavigateUp = !widget.settings.includeSubfolders &&
-        _currentPath != '/' &&
-        (widget.rootPaths.isEmpty || !widget.rootPaths.contains(_currentPath));
 
     // Determine if single selected item is a folder and whether it's already favorited
     final singleSelectedItem = _selectedPaths.length == 1
         ? _items.where((i) => _selectedPaths.contains(i.path)).firstOrNull
         : null;
-    final canFavorite = singleSelectedItem != null && singleSelectedItem.isDirectory;
-    final isFavorite = canFavorite && widget.settings.locations.any((l) => l.path == singleSelectedItem.path);
+    final canFavorite =
+        singleSelectedItem != null && singleSelectedItem.isDirectory;
+    final isFavorite =
+        canFavorite &&
+        widget.settings.locations.any((l) => l.path == singleSelectedItem.path);
 
     return Column(
       children: [
@@ -396,47 +556,17 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
         if (!widget.settings.includeSubfolders)
           BreadcrumbBar(
             currentPath: _currentPath,
-            canNavigateUp: canNavigateUp,
-            onNavigateUp: () {
-              final parent = _currentPath.substring(0, _currentPath.lastIndexOf('/'));
-              setState(() {
-                _currentPath = parent.isEmpty ? '/' : parent;
-              });
-              _scanCurrentPath();
-            },
-            onNavigateTo: (targetPath) {
-              setState(() {
-                _currentPath = targetPath;
-              });
-              _scanCurrentPath();
-            },
+            canNavigateUp: _canNavigateUp,
+            onNavigateUp: _navigateUp,
+            onNavigateTo: _navigateTo,
           )
         else
-          // Subfolders included indicator
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-            color: AppColors.primary.withValues(alpha: 0.12),
-            child: Row(
-              children: [
-                const Icon(Icons.folder_copy_rounded, size: 15, color: AppColors.primaryLight),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Including subfolders: Showing all nested files in scope',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                Text(
-                  '${visible.length} files',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
+          SubfolderBanner(
+            isScanning: _isDeepScanning,
+            visibleCount: visible.length,
           ),
+
+        if (_scanHadErrors && !_storageGone) const UnreadableNote(),
 
         // Interactive Table Column Header (Name, Date, Size)
         ColumnHeaderRow(
@@ -448,88 +578,7 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
         ),
 
         // Items Table with Pinch-to-Zoom
-        Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : visible.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.folder_open_rounded, size: 48, color: theme.hintColor.withValues(alpha: 0.4)),
-                          const SizedBox(height: 8),
-                          Text(
-                            'No matching files found',
-                            style: TextStyle(color: theme.hintColor, fontSize: 13),
-                          ),
-                          if (widget.settings.hasActiveFilters) ...[
-                            const SizedBox(height: 6),
-                            TextButton.icon(
-                              icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
-                              label: const Text('Reset Visibility Filters'),
-                              onPressed: () {
-                                final updated = widget.settings.copyWith(
-                                  showImages: true,
-                                  showVideos: true,
-                                  showAudio: true,
-                                  showDocuments: true,
-                                  showArchives: true,
-                                  showDuplicatesOnly: false,
-                                  customFilterText: '',
-                                );
-                                widget.onSettingsChanged(updated);
-                                SettingsService.saveSettings(updated);
-                              },
-                            ),
-                          ],
-                        ],
-                      ),
-                    )
-                  : GestureDetector(
-                      onScaleStart: (details) {
-                        _basePinchScale = widget.settings.textScale;
-                      },
-                      onScaleUpdate: (details) {
-                        if (details.pointerCount >= 2) {
-                          final newScale = (_basePinchScale * details.scale).clamp(0.8, 1.6);
-                          if ((newScale - widget.settings.textScale).abs() > 0.02) {
-                            final updated = widget.settings.copyWith(textScale: newScale);
-                            widget.onSettingsChanged(updated);
-                          }
-                        }
-                      },
-                      onScaleEnd: (details) {
-                        SettingsService.saveSettings(widget.settings);
-                      },
-                      child: RefreshIndicator(
-                        onRefresh: _scanCurrentPath,
-                        child: ListView.builder(
-                          itemCount: visible.length,
-                          itemBuilder: (context, index) {
-                            final item = visible[index];
-                            final ratio = _computeRatio(item);
-                            final isSelected = _selectedPaths.contains(item.path);
-
-                            return StorageItemTile(
-                              item: item,
-                              ratio: ratio,
-                              isSelectionMode: widget.isSelectionMode,
-                              isSelected: isSelected,
-                              textScale: widget.settings.textScale,
-                              onSelectChanged: (_) => _toggleSelection(item.path),
-                              onTap: () => _onItemTap(item),
-                              onLongPress: () {
-                                if (!widget.isSelectionMode) {
-                                  widget.onSelectionModeChanged(true);
-                                  _toggleSelection(item.path);
-                                }
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-        ),
+        Expanded(child: _buildBody(theme, visible)),
 
         // Batch Action Bar during Selection Mode
         if (widget.isSelectionMode)
@@ -538,7 +587,9 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
             selectedTotalBytes: totalSelectedBytes,
             canFavorite: canFavorite,
             isFavorite: isFavorite,
-            onToggleFavorite: canFavorite ? () => _toggleFavoriteFolder(singleSelectedItem) : null,
+            onToggleFavorite: canFavorite
+                ? () => _toggleFavoriteFolder(singleSelectedItem)
+                : null,
             onSelectAll: _selectAll,
             onDeselectAll: _deselectAll,
             onDeletePressed: _confirmBatchDelete,
@@ -548,6 +599,93 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
             },
           ),
       ],
+    );
+  }
+
+  Widget _buildBody(ThemeData theme, List<StorageItem> visible) {
+    if (_storageGone) {
+      return CenteredMessage(
+        icon: Icons.sd_card_alert_rounded,
+        title: 'Storage not available',
+        subtitle: 'It may have been removed. Reconnect it and try again.',
+        action: FilledButton.tonal(
+          onPressed: _scanCurrentPath,
+          child: const Text('Try again'),
+        ),
+      );
+    }
+
+    if (visible.isEmpty) {
+      if (_isDeepScanning) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      return CenteredMessage(
+        icon: Icons.folder_open_rounded,
+        title: 'No matching files found',
+        action: widget.settings.hasActiveFilters
+            ? TextButton.icon(
+                icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
+                label: const Text('Reset Visibility Filters'),
+                onPressed: () {
+                  final updated = widget.settings.copyWith(
+                    showImages: true,
+                    showVideos: true,
+                    showAudio: true,
+                    showDocuments: true,
+                    showArchives: true,
+                    showDuplicatesOnly: false,
+                    customFilterText: '',
+                  );
+                  widget.onSettingsChanged(updated);
+                  SettingsService.saveSettings(updated);
+                },
+              )
+            : null,
+      );
+    }
+
+    return GestureDetector(
+      onScaleStart: (details) {
+        _basePinchScale = widget.settings.textScale;
+      },
+      onScaleUpdate: (details) {
+        if (details.pointerCount >= 2) {
+          final newScale = (_basePinchScale * details.scale).clamp(0.8, 1.6);
+          if ((newScale - widget.settings.textScale).abs() > 0.02) {
+            widget.onSettingsChanged(
+              widget.settings.copyWith(textScale: newScale),
+            );
+          }
+        }
+      },
+      onScaleEnd: (details) {
+        SettingsService.saveSettings(widget.settings);
+      },
+      child: RefreshIndicator(
+        onRefresh: _scanCurrentPath,
+        child: ListView.builder(
+          itemCount: visible.length,
+          itemBuilder: (context, index) {
+            final item = visible[index];
+            return StorageItemTile(
+              key: ValueKey(item.path),
+              item: item,
+              ratio: _computeRatio(item),
+              isSelectionMode: widget.isSelectionMode,
+              isSelected: _selectedPaths.contains(item.path),
+              textScale: widget.settings.textScale,
+              onSelectChanged: (_) => _toggleSelection(item.path),
+              onTap: () => _onItemTap(item),
+              onLongPress: () {
+                if (!widget.isSelectionMode) {
+                  widget.onSelectionModeChanged(true);
+                  _toggleSelection(item.path);
+                }
+              },
+            );
+          },
+        ),
+      ),
     );
   }
 }

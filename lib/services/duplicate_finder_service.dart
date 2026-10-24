@@ -11,7 +11,9 @@ class DuplicateFinderService {
     required DuplicateMatchCriteria criteria,
   }) {
     if (!criteria.isEnabled) {
-      return items.map((i) => i.copyWith(isDuplicate: false, clearDuplicateGroup: true)).toList();
+      return items
+          .map((i) => i.copyWith(isDuplicate: false, clearDuplicateGroup: true))
+          .toList();
     }
 
     // Only compare files, not directories
@@ -42,15 +44,9 @@ class DuplicateFinderService {
     return items.map((item) {
       final groupId = duplicatePathToGroupId[item.path];
       if (groupId != null) {
-        return item.copyWith(
-          isDuplicate: true,
-          duplicateGroupId: groupId,
-        );
+        return item.copyWith(isDuplicate: true, duplicateGroupId: groupId);
       }
-      return item.copyWith(
-        isDuplicate: false,
-        clearDuplicateGroup: true,
-      );
+      return item.copyWith(isDuplicate: false, clearDuplicateGroup: true);
     }).toList();
   }
 

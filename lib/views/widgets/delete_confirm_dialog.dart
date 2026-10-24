@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/size_formatter.dart';
 import '../../models/storage_item.dart';
@@ -6,25 +7,38 @@ import '../../models/storage_item.dart';
 /// Modal dialog confirming batch deletion with exact storage recovery metrics.
 class DeleteConfirmDialog extends StatelessWidget {
   final List<StorageItem> selectedItems;
-  final VoidCallback onConfirmDelete;
+
+  /// Items that were refused beforehand because they are protected (storage roots, Android folder).
+  final int protectedCount;
 
   const DeleteConfirmDialog({
     super.key,
     required this.selectedItems,
-    required this.onConfirmDelete,
+    this.protectedCount = 0,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final totalReclaimedBytes = selectedItems.fold<int>(0, (sum, item) => sum + item.size);
+    final totalReclaimedBytes = selectedItems.fold<int>(
+      0,
+      (sum, item) => sum + item.size,
+    );
+    final sizesPending = selectedItems.any((item) => item.isScanning);
 
     return AlertDialog(
       title: Row(
         children: const [
-          Icon(Icons.warning_amber_rounded, color: AppColors.accentRose, size: 24),
+          Icon(
+            Icons.warning_amber_rounded,
+            color: AppColors.accentRose,
+            size: 24,
+          ),
           SizedBox(width: 8),
-          Text('Confirm Deletion', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(
+            'Confirm Deletion',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
       content: SizedBox(
@@ -44,7 +58,8 @@ class DeleteConfirmDialog extends StatelessWidget {
                   ),
                   const TextSpan(text: ' to reclaim '),
                   TextSpan(
-                    text: SizeFormatter.formatBytes(totalReclaimedBytes),
+                    text:
+                        '${sizesPending ? 'at least ' : ''}${SizeFormatter.formatBytes(totalReclaimedBytes)}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: AppColors.accentRose,
@@ -55,6 +70,20 @@ class DeleteConfirmDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+            if (sizesPending) ...[
+              Text(
+                'Some folder sizes are still being calculated, so the space freed may be higher.',
+                style: TextStyle(fontSize: 11.5, color: theme.hintColor),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (protectedCount > 0) ...[
+              Text(
+                '$protectedCount protected ${protectedCount == 1 ? 'item was' : 'items were'} left out (storage roots and the Android folder cannot be deleted).',
+                style: TextStyle(fontSize: 11.5, color: theme.hintColor),
+              ),
+              const SizedBox(height: 8),
+            ],
             const Text(
               'This action cannot be undone:',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
@@ -71,11 +100,15 @@ class DeleteConfirmDialog extends StatelessWidget {
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: selectedItems.length,
-                  separatorBuilder: (_, _) => Divider(height: 1, color: theme.dividerColor),
+                  separatorBuilder: (_, _) =>
+                      Divider(height: 1, color: theme.dividerColor),
                   itemBuilder: (context, index) {
                     final item = selectedItems[index];
                     return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
                       child: Row(
                         children: [
                           Expanded(
@@ -89,7 +122,10 @@ class DeleteConfirmDialog extends StatelessWidget {
                           const SizedBox(width: 6),
                           Text(
                             SizeFormatter.formatBytes(item.size),
-                            style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                            ),
                           ),
                         ],
                       ),
@@ -103,14 +139,11 @@ class DeleteConfirmDialog extends StatelessWidget {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).pop(false),
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-            onConfirmDelete();
-          },
+          onPressed: () => Navigator.of(context).pop(true),
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.accentRose,
             foregroundColor: Colors.white,

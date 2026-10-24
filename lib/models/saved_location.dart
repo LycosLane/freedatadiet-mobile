@@ -18,12 +18,7 @@ class SavedLocation {
   bool get isInternal => type == 'internal';
 
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'name': name,
-      'path': path,
-      'type': type,
-    };
+    return {'id': id, 'name': name, 'path': path, 'type': type};
   }
 
   factory SavedLocation.fromMap(Map<String, dynamic> map) {
@@ -52,7 +47,9 @@ class SavedLocation {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is SavedLocation && runtimeType == other.runtimeType && id == other.id;
+      other is SavedLocation &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
 
   @override
   int get hashCode => id.hashCode;

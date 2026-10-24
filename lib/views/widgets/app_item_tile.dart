@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/size_formatter.dart';
 import '../../models/app_storage_info.dart';
+import 'app_icon.dart';
 import 'usage_bar.dart';
 
 /// Renders a single row in the App Diet view with prominent Cache/Data metrics and 1-tap Settings navigation.
@@ -21,7 +23,9 @@ class AppItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final secondaryTextColor = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    final secondaryTextColor = isDark
+        ? AppColors.darkTextSecondary
+        : AppColors.lightTextSecondary;
 
     final isHeavyCache = app.cacheBytes > (250 * 1024 * 1024); // > 250 MB cache
 
@@ -41,18 +45,7 @@ class AppItemTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // App Icon
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: app.iconBytes != null
-                      ? Image.memory(
-                          app.iconBytes!,
-                          width: 42,
-                          height: 42,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _fallbackIcon(theme),
-                        )
-                      : _fallbackIcon(theme),
-                ),
+                AppIcon(packageName: app.packageName),
                 const SizedBox(width: 12),
                 // App Details & Breakdown
                 Expanded(
@@ -75,9 +68,14 @@ class AppItemTile extends StatelessWidget {
                           if (app.isSystemApp) ...[
                             const SizedBox(width: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 1.5,
+                              ),
                               decoration: BoxDecoration(
-                                color: AppColors.badgeSys.withValues(alpha: 0.15),
+                                color: AppColors.badgeSys.withValues(
+                                  alpha: 0.15,
+                                ),
                                 borderRadius: BorderRadius.circular(3),
                               ),
                               child: const Text(
@@ -94,33 +92,46 @@ class AppItemTile extends StatelessWidget {
                       ),
                       const SizedBox(height: 5),
                       // Prominent Cache, Data, and APK labels
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 4,
-                        children: [
-                          _buildStatBadge(
-                            label: 'Cache: ${SizeFormatter.formatBytes(app.cacheBytes)}',
-                            color: isHeavyCache ? AppColors.accentRose : AppColors.accentAmber,
-                            isBold: isHeavyCache,
+                      if (app.isCalculating)
+                        Text(
+                          'Calculating sizes...',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w500,
                           ),
-                          Text(
-                            'Data: ${SizeFormatter.formatBytes(app.dataBytes)}',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color: secondaryTextColor,
-                              fontWeight: FontWeight.w500,
+                        )
+                      else
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 4,
+                          children: [
+                            _buildStatBadge(
+                              label:
+                                  'Cache: ${app.statsKnown ? SizeFormatter.formatBytes(app.cacheBytes) : 'n/a'}',
+                              color: isHeavyCache
+                                  ? AppColors.accentRose
+                                  : AppColors.accentAmber,
+                              isBold: isHeavyCache,
                             ),
-                          ),
-                          Text(
-                            'APK: ${SizeFormatter.formatBytes(app.appBytes)}',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color: secondaryTextColor,
-                              fontWeight: FontWeight.w500,
+                            Text(
+                              'Data: ${app.statsKnown ? SizeFormatter.formatBytes(app.dataBytes) : 'n/a'}',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: secondaryTextColor,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                            Text(
+                              'APK: ${SizeFormatter.formatBytes(app.appBytes)}',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: secondaryTextColor,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ),
@@ -129,14 +140,24 @@ class AppItemTile extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      SizeFormatter.formatBytes(app.totalBytes),
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: 'monospace',
+                    if (app.isCalculating)
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.8,
+                          color: theme.colorScheme.primary,
+                        ),
+                      )
+                    else
+                      Text(
+                        SizeFormatter.formatBytes(app.totalBytes),
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'monospace',
+                        ),
                       ),
-                    ),
                     const SizedBox(width: 2),
                     Icon(
                       Icons.chevron_right_rounded,
@@ -155,7 +176,11 @@ class AppItemTile extends StatelessWidget {
     );
   }
 
-  Widget _buildStatBadge({required String label, required Color color, bool isBold = false}) {
+  Widget _buildStatBadge({
+    required String label,
+    required Color color,
+    bool isBold = false,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -170,15 +195,6 @@ class AppItemTile extends StatelessWidget {
           fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
         ),
       ),
-    );
-  }
-
-  Widget _fallbackIcon(ThemeData theme) {
-    return Container(
-      width: 42,
-      height: 42,
-      color: theme.colorScheme.primary.withValues(alpha: 0.12),
-      child: Icon(Icons.android_rounded, size: 24, color: theme.colorScheme.primary),
     );
   }
 }

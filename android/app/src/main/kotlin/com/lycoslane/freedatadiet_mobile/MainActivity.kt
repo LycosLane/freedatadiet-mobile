@@ -2,14 +2,14 @@ package com.lycoslane.freedatadiet_mobile
 
 import android.app.AppOpsManager
 import android.app.usage.StorageStatsManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -19,16 +19,38 @@ import android.os.storage.StorageVolume
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.util.UUID
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.lycoslane.freedatadiet/native_bridge"
+    private val CHANNEL = "com.lycoslane.freedatadiet_mobile/native_bridge"
+    private val VOLUME_CHANNEL = "com.lycoslane.freedatadiet_mobile/volume_events"
+
+    private val worker: ExecutorService = Executors.newFixedThreadPool(2)
+    private var volumeSink: EventChannel.EventSink? = null
+    private var volumeReceiver: BroadcastReceiver? = null
+    private var volumeCallback: Any? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, VOLUME_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    volumeSink = events
+                    registerVolumeListeners()
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    unregisterVolumeListeners()
+                    volumeSink = null
+                }
+            }
+        )
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
@@ -48,15 +70,41 @@ class MainActivity : FlutterActivity() {
                     val volumes = getAvailableStorageVolumes()
                     result.success(volumes)
                 }
-                "getInstalledAppsUsage" -> {
-                    Thread {
+                "getInstalledAppsBasic" -> {
+                    worker.execute {
                         try {
-                            val apps = queryAppsUsageStats()
+                            val apps = queryBasicApps()
                             runOnUiThread { result.success(apps) }
                         } catch (e: Exception) {
-                            runOnUiThread { result.error("STATS_ERROR", e.localizedMessage, null) }
+                            runOnUiThread { result.error("APPS_ERROR", e.localizedMessage, null) }
                         }
-                    }.start()
+                    }
+                }
+                "getAppStats" -> {
+                    val packageNames = call.argument<List<String>>("packageNames")
+                    if (packageNames == null) {
+                        result.error("INVALID_ARG", "packageNames is required", null)
+                    } else {
+                        worker.execute {
+                            try {
+                                val stats = packageNames.map { queryAppStats(it) }
+                                runOnUiThread { result.success(stats) }
+                            } catch (e: Exception) {
+                                runOnUiThread { result.error("STATS_ERROR", e.localizedMessage, null) }
+                            }
+                        }
+                    }
+                }
+                "getAppIcon" -> {
+                    val packageName = call.argument<String>("packageName")
+                    if (packageName == null) {
+                        result.error("INVALID_ARG", "packageName is required", null)
+                    } else {
+                        worker.execute {
+                            val bytes = queryAppIcon(packageName)
+                            runOnUiThread { result.success(bytes) }
+                        }
+                    }
                 }
                 "openAppStorageSettings" -> {
                     val packageName = call.argument<String>("packageName")
@@ -205,91 +253,150 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun queryAppsUsageStats(): List<Map<String, Any>> {
-        val result = mutableListOf<Map<String, Any>>()
+    /// Fast query: every installed app with name and system flag. No sizes, no icons.
+    private fun queryBasicApps(): List<Map<String, Any>> {
         val pm = packageManager
-        val storageStatsManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getSystemService(Context.STORAGE_STATS_SERVICE) as? StorageStatsManager
-        } else null
-
-        val installedPackages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
-
-        for (appInfo in installedPackages) {
-            val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-            val appLabel = pm.getApplicationLabel(appInfo).toString()
-            val packageName = appInfo.packageName
-
-            var appBytes: Long = 0
-            var dataBytes: Long = 0
-            var cacheBytes: Long = 0
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && storageStatsManager != null) {
-                try {
-                    val uuid = if (appInfo.storageUuid != null) appInfo.storageUuid else StorageManager.UUID_DEFAULT
-                    val stats = storageStatsManager.queryStatsForPackage(uuid, packageName, Process.myUserHandle())
-                    appBytes = stats.appBytes
-                    // StorageStats.dataBytes already includes cacheBytes: split them to avoid double counting
-                    dataBytes = (stats.dataBytes - stats.cacheBytes).coerceAtLeast(0)
-                    cacheBytes = stats.cacheBytes
-                } catch (_: Exception) {
-                    // Fallback to checking apk size if stats permission wasn't granted or package inaccessible
-                    val sourceFile = File(appInfo.sourceDir)
-                    if (sourceFile.exists()) {
-                        appBytes = sourceFile.length()
-                    }
-                }
-            } else {
-                val sourceFile = File(appInfo.sourceDir)
-                if (sourceFile.exists()) {
-                    appBytes = sourceFile.length()
-                }
-            }
-
-            val totalBytes = appBytes + dataBytes + cacheBytes
-
-            // Get icon thumbnail base64/bytes for visual polish
-            val iconBytes = try {
-                val drawable = pm.getApplicationIcon(appInfo)
-                val bitmap = drawableToBitmap(drawable)
-                val stream = ByteArrayOutputStream()
-                bitmap.compress(Bitmap.CompressFormat.PNG, 85, stream)
-                stream.toByteArray()
-            } catch (_: Exception) {
-                null
-            }
-
-            val appMap = mutableMapOf<String, Any>(
-                "packageName" to packageName,
-                "appName" to appLabel,
-                "isSystemApp" to isSystem,
-                "appBytes" to appBytes,
-                "dataBytes" to dataBytes,
-                "cacheBytes" to cacheBytes,
-                "totalBytes" to totalBytes
+        return pm.getInstalledApplications(0).map { appInfo ->
+            mapOf(
+                "packageName" to appInfo.packageName,
+                "appName" to pm.getApplicationLabel(appInfo).toString(),
+                "isSystemApp" to ((appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0)
             )
-            if (iconBytes != null) {
-                appMap["iconBytes"] = iconBytes
+        }
+    }
+
+    /// Sizes for one package. dataBytes from Android already contains the cache, so it is split here.
+    private fun queryAppStats(pkg: String): Map<String, Any> {
+        val pm = packageManager
+        val appInfo = try {
+            pm.getApplicationInfo(pkg, 0)
+        } catch (_: Exception) {
+            return mapOf("packageName" to pkg, "statsKnown" to false, "appBytes" to 0L, "dataBytes" to 0L, "cacheBytes" to 0L)
+        }
+
+        var appBytes = 0L
+        var dataBytes = 0L
+        var cacheBytes = 0L
+        var known = false
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                val statsManager = getSystemService(Context.STORAGE_STATS_SERVICE) as StorageStatsManager
+                // Apps on adoptable external storage live on another volume UUID.
+                val uuid = appInfo.storageUuid ?: StorageManager.UUID_DEFAULT
+                val stats = statsManager.queryStatsForPackage(uuid, pkg, Process.myUserHandle())
+                appBytes = stats.appBytes
+                cacheBytes = stats.cacheBytes
+                dataBytes = (stats.dataBytes - stats.cacheBytes).coerceAtLeast(0)
+                known = true
+            } catch (_: Exception) {
+                // Usage access missing, volume not mounted or package not accessible.
             }
-
-            result.add(appMap)
         }
 
-        return result
-    }
-
-    private fun drawableToBitmap(drawable: Drawable): Bitmap {
-        if (drawable is BitmapDrawable && drawable.bitmap != null) {
-            return drawable.bitmap
+        if (!known) {
+            // Honest fallback: only the APK size is known. Dart shows data and cache as unavailable.
+            val source = File(appInfo.sourceDir)
+            if (source.exists()) appBytes = source.length()
         }
-        val width = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth.coerceAtMost(96) else 96
-        val height = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight.coerceAtMost(96) else 96
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        drawable.setBounds(0, 0, canvas.width, canvas.height)
-        drawable.draw(canvas)
-        return bitmap
+
+        return mapOf(
+            "packageName" to pkg,
+            "statsKnown" to known,
+            "appBytes" to appBytes,
+            "dataBytes" to dataBytes,
+            "cacheBytes" to cacheBytes
+        )
     }
 
+    /// Small PNG icon, loaded on demand per visible row.
+    private fun queryAppIcon(pkg: String): ByteArray? {
+        return try {
+            val drawable = packageManager.getApplicationIcon(pkg)
+            val size = 96
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, size, size)
+            drawable.draw(canvas)
+            val stream = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.PNG, 90, stream)
+            bitmap.recycle()
+            stream.toByteArray()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Storage volume change notifications (SD card or USB OTG mounted / removed)
+    // ---------------------------------------------------------------------------------------
+
+    private fun notifyVolumeChange() {
+        runOnUiThread { volumeSink?.success("changed") }
+    }
+
+    private fun registerVolumeListeners() {
+        if (volumeReceiver == null) {
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    notifyVolumeChange()
+                }
+            }
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_MEDIA_MOUNTED)
+                addAction(Intent.ACTION_MEDIA_UNMOUNTED)
+                addAction(Intent.ACTION_MEDIA_EJECT)
+                addAction(Intent.ACTION_MEDIA_REMOVED)
+                addAction(Intent.ACTION_MEDIA_BAD_REMOVAL)
+                addDataScheme("file")
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+            } else {
+                registerReceiver(receiver, filter)
+            }
+            volumeReceiver = receiver
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && volumeCallback == null) {
+            val storageManager = getSystemService(Context.STORAGE_SERVICE) as? StorageManager
+            val callback = object : StorageManager.StorageVolumeCallback() {
+                override fun onStateChanged(volume: StorageVolume) {
+                    notifyVolumeChange()
+                }
+            }
+            storageManager?.registerStorageVolumeCallback(mainExecutor, callback)
+            volumeCallback = callback
+        }
+    }
+
+    private fun unregisterVolumeListeners() {
+        volumeReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (_: Exception) {
+            }
+        }
+        volumeReceiver = null
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            (volumeCallback as? StorageManager.StorageVolumeCallback)?.let {
+                (getSystemService(Context.STORAGE_SERVICE) as? StorageManager)?.unregisterStorageVolumeCallback(it)
+            }
+        }
+        volumeCallback = null
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        unregisterVolumeListeners()
+        volumeSink = null
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
+
+    override fun onDestroy() {
+        worker.shutdown()
+        super.onDestroy()
+    }
     private fun openApplicationStorageDetails(pkgName: String) {
         try {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {

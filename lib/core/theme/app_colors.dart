@@ -24,15 +24,19 @@ class AppColors {
   static const Color primary = Color(0xFF2563EB); // Modern Royal Blue
   static const Color primaryLight = Color(0xFF3B82F6);
   static const Color accentGreen = Color(0xFF10B981); // Emerald size bar
-  static const Color accentAmber = Color(0xFFF59E0B); // Large file / Cache warning
-  static const Color accentRose = Color(0xFFEF4444);  // Oversized bloat / Delete action
+  static const Color accentAmber = Color(
+    0xFFF59E0B,
+  ); // Large file / Cache warning
+  static const Color accentRose = Color(
+    0xFFEF4444,
+  ); // Oversized bloat / Delete action
 
   // Badge Colors
-  static const Color badgeDir = Color(0xFF3B82F6);    // Blue for folders
-  static const Color badgeFile = Color(0xFF6B7280);   // Neutral grey for files
-  static const Color badgeSys = Color(0xFF8B5CF6);    // Purple for system
-  static const Color badgeLink = Color(0xFF06B6D4);   // Cyan for symlinks/links
-  static const Color badgeCache = Color(0xFFF59E0B);  // Amber for cache
+  static const Color badgeDir = Color(0xFF3B82F6); // Blue for folders
+  static const Color badgeFile = Color(0xFF6B7280); // Neutral grey for files
+  static const Color badgeSys = Color(0xFF8B5CF6); // Purple for system
+  static const Color badgeLink = Color(0xFF06B6D4); // Cyan for symlinks/links
+  static const Color badgeCache = Color(0xFFF59E0B); // Amber for cache
 
   // Proportional Usage Bar Gradient
   static LinearGradient usageBarGradient(double ratio) {

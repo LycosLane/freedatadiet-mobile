@@ -35,7 +35,10 @@ void main() {
       final items = [file1, file2, file3];
       final tagged = DuplicateFinderService.markDuplicates(
         items: items,
-        criteria: const DuplicateMatchCriteria(matchName: true, matchSize: true),
+        criteria: const DuplicateMatchCriteria(
+          matchName: true,
+          matchSize: true,
+        ),
       );
 
       final dups = tagged.where((i) => i.isDuplicate).toList();
@@ -59,7 +62,10 @@ void main() {
       final items = [file1, renamedClone];
       final tagged = DuplicateFinderService.markDuplicates(
         items: items,
-        criteria: const DuplicateMatchCriteria(matchName: false, matchSize: true),
+        criteria: const DuplicateMatchCriteria(
+          matchName: false,
+          matchSize: true,
+        ),
       );
 
       expect(tagged.every((i) => i.isDuplicate), true);

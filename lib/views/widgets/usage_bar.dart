@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
 
 /// Renders a proportional horizontal usage bar representing relative size weight.
@@ -6,11 +7,7 @@ class UsageBar extends StatelessWidget {
   final double ratio;
   final double height;
 
-  const UsageBar({
-    super.key,
-    required this.ratio,
-    this.height = 4.0,
-  });
+  const UsageBar({super.key, required this.ratio, this.height = 4.0});
 
   @override
   Widget build(BuildContext context) {

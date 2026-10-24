@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../models/user_settings.dart';
+import 'excluded_folders_section.dart';
 
 /// Single unified bottom sheet containing:
 /// 1. Custom Text / Extension search
 /// 2. "What's Shown" opt-out visibility switches (Images, Videos, Audio, Documents, Archives, Subfolders, Hidden)
 /// 3. Independent Duplicate Detection ("Only show duplicates" + criteria switches)
-/// 4. Text & UI Zoom scaling
-/// 5. Appearance & Bar Scaling
+/// 4. Excluded folders (editable, with restore defaults)
+/// 5. Text & UI Zoom scaling
+/// 6. Appearance & Bar Scaling
 class UnifiedMenuSheet extends StatefulWidget {
   final UserSettings settings;
   final ValueChanged<UserSettings> onSettingsChanged;
@@ -30,7 +33,9 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
   void initState() {
     super.initState();
     _current = widget.settings;
-    _filterTextController = TextEditingController(text: _current.customFilterText);
+    _filterTextController = TextEditingController(
+      text: _current.customFilterText,
+    );
   }
 
   @override
@@ -61,7 +66,9 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: theme.colorScheme.surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
               border: Border(bottom: BorderSide(color: theme.dividerColor)),
             ),
             child: Row(
@@ -80,7 +87,10 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                   ),
-                  child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Done',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
@@ -92,14 +102,20 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               children: [
                 // 1. Custom Text / Extension Filter Input
-                const Text('Search & Extension Filter', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                const Text(
+                  'Search & Extension Filter',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _filterTextController,
                   style: const TextStyle(fontSize: 13.5),
                   decoration: InputDecoration(
                     hintText: 'Filter name, .pdf, .xmp, sidecar, log...',
-                    hintStyle: TextStyle(fontSize: 12.5, color: theme.hintColor),
+                    hintStyle: TextStyle(
+                      fontSize: 12.5,
+                      color: theme.hintColor,
+                    ),
                     isDense: true,
                     filled: true,
                     fillColor: theme.colorScheme.surface,
@@ -109,7 +125,9 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
                             icon: const Icon(Icons.clear, size: 18),
                             onPressed: () {
                               _filterTextController.clear();
-                              _updateSettings(_current.copyWith(customFilterText: ''));
+                              _updateSettings(
+                                _current.copyWith(customFilterText: ''),
+                              );
                             },
                           )
                         : null,
@@ -133,83 +151,112 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
                 const SizedBox(height: 18),
 
                 // 2. "What's Shown" (Opt-out Visibility Controls - All active by default)
-                _buildSectionHeader("What's Shown", Icons.visibility_rounded, accent),
+                _buildSectionHeader(
+                  "What's Shown",
+                  Icons.visibility_rounded,
+                  accent,
+                ),
                 _buildUniformSwitch(
                   title: 'Images',
                   subtitle: 'Show .jpg, .png, .webp, .heic, .dng, .raw',
                   value: _current.showImages,
                   accent: accent,
-                  onChanged: (val) => _updateSettings(_current.copyWith(showImages: val)),
+                  onChanged: (val) =>
+                      _updateSettings(_current.copyWith(showImages: val)),
                 ),
                 _buildUniformSwitch(
                   title: 'Videos',
                   subtitle: 'Show .mp4, .mkv, .mov, .avi, .webm, .3gp',
                   value: _current.showVideos,
                   accent: accent,
-                  onChanged: (val) => _updateSettings(_current.copyWith(showVideos: val)),
+                  onChanged: (val) =>
+                      _updateSettings(_current.copyWith(showVideos: val)),
                 ),
                 _buildUniformSwitch(
                   title: 'Audio',
                   subtitle: 'Show .mp3, .flac, .wav, .m4a, .ogg, .opus',
                   value: _current.showAudio,
                   accent: accent,
-                  onChanged: (val) => _updateSettings(_current.copyWith(showAudio: val)),
+                  onChanged: (val) =>
+                      _updateSettings(_current.copyWith(showAudio: val)),
                 ),
                 _buildUniformSwitch(
                   title: 'Documents',
                   subtitle: 'Show .pdf, .doc, .docx, .txt, .epub, .xlsx',
                   value: _current.showDocuments,
                   accent: accent,
-                  onChanged: (val) => _updateSettings(_current.copyWith(showDocuments: val)),
+                  onChanged: (val) =>
+                      _updateSettings(_current.copyWith(showDocuments: val)),
                 ),
                 _buildUniformSwitch(
                   title: 'Archives & APKs',
                   subtitle: 'Show .zip, .rar, .7z, .tar, .apk, .obb',
                   value: _current.showArchives,
                   accent: accent,
-                  onChanged: (val) => _updateSettings(_current.copyWith(showArchives: val)),
+                  onChanged: (val) =>
+                      _updateSettings(_current.copyWith(showArchives: val)),
                 ),
                 _buildUniformSwitch(
                   title: 'Include subfolders',
-                  subtitle: 'Recursively traverses and displays all nested files',
+                  subtitle:
+                      'Recursively traverses and displays all nested files',
                   value: _current.includeSubfolders,
                   accent: accent,
-                  onChanged: (val) => _updateSettings(_current.copyWith(includeSubfolders: val)),
+                  onChanged: (val) => _updateSettings(
+                    _current.copyWith(includeSubfolders: val),
+                  ),
                 ),
                 _buildUniformSwitch(
                   title: 'Show hidden files',
                   subtitle: 'Includes dotfiles (.nomedia, .thumbnails, etc.)',
                   value: _current.showHiddenFiles,
                   accent: accent,
-                  onChanged: (val) => _updateSettings(_current.copyWith(showHiddenFiles: val)),
+                  onChanged: (val) =>
+                      _updateSettings(_current.copyWith(showHiddenFiles: val)),
                 ),
                 const SizedBox(height: 18),
 
                 // 3. Duplicate Detection (Separate, Independent Section)
-                _buildSectionHeader('Duplicate Detection', Icons.copy_all_rounded, accent),
+                _buildSectionHeader(
+                  'Duplicate Detection',
+                  Icons.copy_all_rounded,
+                  accent,
+                ),
                 _buildUniformSwitch(
                   title: 'Only show duplicates',
-                  subtitle: 'Hides unique files and surfaces duplicate copies only',
+                  subtitle:
+                      'Hides unique files and surfaces duplicate copies only',
                   value: _current.showDuplicatesOnly,
                   accent: AppColors.accentAmber,
-                  onChanged: (val) => _updateSettings(_current.copyWith(showDuplicatesOnly: val)),
+                  onChanged: (val) => _updateSettings(
+                    _current.copyWith(showDuplicatesOnly: val),
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(left: 8, top: 4, bottom: 4),
                   child: Text(
                     'Duplicate Matching Criteria:',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: theme.hintColor),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: theme.hintColor,
+                    ),
                   ),
                 ),
                 _buildUniformSwitch(
                   title: 'Match same file size',
-                  subtitle: 'Matches byte size (catches identical renamed files)',
+                  subtitle:
+                      'Matches byte size (catches identical renamed files)',
                   value: _current.duplicateCriteria.matchSize,
                   accent: accent,
                   onChanged: (val) {
-                    _updateSettings(_current.copyWith(
-                      duplicateCriteria: _current.duplicateCriteria.copyWith(matchSize: val),
-                    ));
+                    _updateSettings(
+                      _current.copyWith(
+                        duplicateCriteria: _current.duplicateCriteria.copyWith(
+                          matchSize: val,
+                        ),
+                      ),
+                    );
                   },
                 ),
                 _buildUniformSwitch(
@@ -218,9 +265,13 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
                   value: _current.duplicateCriteria.matchName,
                   accent: accent,
                   onChanged: (val) {
-                    _updateSettings(_current.copyWith(
-                      duplicateCriteria: _current.duplicateCriteria.copyWith(matchName: val),
-                    ));
+                    _updateSettings(
+                      _current.copyWith(
+                        duplicateCriteria: _current.duplicateCriteria.copyWith(
+                          matchName: val,
+                        ),
+                      ),
+                    );
                   },
                 ),
                 _buildUniformSwitch(
@@ -229,17 +280,43 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
                   value: _current.duplicateCriteria.matchTimestamp,
                   accent: accent,
                   onChanged: (val) {
-                    _updateSettings(_current.copyWith(
-                      duplicateCriteria: _current.duplicateCriteria.copyWith(matchTimestamp: val),
-                    ));
+                    _updateSettings(
+                      _current.copyWith(
+                        duplicateCriteria: _current.duplicateCriteria.copyWith(
+                          matchTimestamp: val,
+                        ),
+                      ),
+                    );
                   },
                 ),
                 const SizedBox(height: 18),
 
-                // 4. Text & UI Zoom Scaling
-                _buildSectionHeader('Text & UI Zoom', Icons.zoom_in_rounded, accent),
+                // 4. Excluded folders (sensible defaults, editable, restorable)
+                _buildSectionHeader(
+                  'Excluded Folders',
+                  Icons.folder_off_rounded,
+                  accent,
+                ),
+                ExcludedFoldersSection(
+                  patterns: _current.excludedPatterns,
+                  accent: accent,
+                  onChanged: (list) => _updateSettings(
+                    _current.copyWith(excludedPatterns: list),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // 5. Text & UI Zoom Scaling
+                _buildSectionHeader(
+                  'Text & UI Zoom',
+                  Icons.zoom_in_rounded,
+                  accent,
+                ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(8),
@@ -250,7 +327,13 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Font & Layout Scale', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                          const Text(
+                            'Font & Layout Scale',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                           Text(
                             '${(_current.textScale * 100).round()}%',
                             style: TextStyle(
@@ -265,9 +348,17 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
                       Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.remove_circle_outline_rounded, size: 22),
+                            icon: const Icon(
+                              Icons.remove_circle_outline_rounded,
+                              size: 22,
+                            ),
                             onPressed: _current.textScale > 0.8
-                                ? () => _updateSettings(_current.copyWith(textScale: (_current.textScale - 0.05).clamp(0.8, 1.6)))
+                                ? () => _updateSettings(
+                                    _current.copyWith(
+                                      textScale: (_current.textScale - 0.05)
+                                          .clamp(0.8, 1.6),
+                                    ),
+                                  )
                                 : null,
                           ),
                           Expanded(
@@ -277,53 +368,97 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
                               max: 1.6,
                               divisions: 16,
                               activeColor: accent,
-                              onChanged: (val) => _updateSettings(_current.copyWith(textScale: val)),
+                              onChanged: (val) => _updateSettings(
+                                _current.copyWith(textScale: val),
+                              ),
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.add_circle_outline_rounded, size: 22),
+                            icon: const Icon(
+                              Icons.add_circle_outline_rounded,
+                              size: 22,
+                            ),
                             onPressed: _current.textScale < 1.6
-                                ? () => _updateSettings(_current.copyWith(textScale: (_current.textScale + 0.05).clamp(0.8, 1.6)))
+                                ? () => _updateSettings(
+                                    _current.copyWith(
+                                      textScale: (_current.textScale + 0.05)
+                                          .clamp(0.8, 1.6),
+                                    ),
+                                  )
                                 : null,
                           ),
                         ],
                       ),
                       const Text(
                         'Tip: You can also pinch-to-zoom directly on the file list table!',
-                        style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 18),
 
-                // 5. Appearance & Theme
-                _buildSectionHeader('Appearance & Bar Scaling', Icons.palette_rounded, accent),
-                const Text('Theme Mode', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
+                // 6. Appearance & Theme
+                _buildSectionHeader(
+                  'Appearance & Bar Scaling',
+                  Icons.palette_rounded,
+                  accent,
+                ),
+                const Text(
+                  'Theme Mode',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
+                ),
                 const SizedBox(height: 6),
                 SegmentedButton<ThemeMode>(
                   segments: const [
-                    ButtonSegment(value: ThemeMode.dark, label: Text('Dark'), icon: Icon(Icons.dark_mode_outlined, size: 16)),
-                    ButtonSegment(value: ThemeMode.light, label: Text('Bright'), icon: Icon(Icons.light_mode_outlined, size: 16)),
-                    ButtonSegment(value: ThemeMode.system, label: Text('Auto'), icon: Icon(Icons.brightness_auto_outlined, size: 16)),
+                    ButtonSegment(
+                      value: ThemeMode.dark,
+                      label: Text('Dark'),
+                      icon: Icon(Icons.dark_mode_outlined, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      label: Text('Bright'),
+                      icon: Icon(Icons.light_mode_outlined, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      label: Text('Auto'),
+                      icon: Icon(Icons.brightness_auto_outlined, size: 16),
+                    ),
                   ],
                   selected: {_current.themeMode},
-                  onSelectionChanged: (set) => _updateSettings(_current.copyWith(themeMode: set.first)),
+                  onSelectionChanged: (set) =>
+                      _updateSettings(_current.copyWith(themeMode: set.first)),
                 ),
                 const SizedBox(height: 14),
 
-                const Text('Usage Bar Scaling', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
+                const Text(
+                  'Usage Bar Scaling',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
+                ),
                 const SizedBox(height: 4),
                 RadioGroup<BarScalingMode>(
                   groupValue: _current.barScalingMode,
                   onChanged: (val) {
-                    if (val != null) _updateSettings(_current.copyWith(barScalingMode: val));
+                    if (val != null) {
+                      _updateSettings(_current.copyWith(barScalingMode: val));
+                    }
                   },
                   child: Column(
                     children: BarScalingMode.values.map((mode) {
                       return RadioListTile<BarScalingMode>(
-                        title: Text(mode.label, style: const TextStyle(fontSize: 13)),
-                        subtitle: Text(mode.description, style: const TextStyle(fontSize: 11)),
+                        title: Text(
+                          mode.label,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        subtitle: Text(
+                          mode.description,
+                          style: const TextStyle(fontSize: 11),
+                        ),
                         value: mode,
                         dense: true,
                         activeColor: accent,
@@ -348,7 +483,10 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
         children: [
           Icon(icon, size: 17, color: accent),
           const SizedBox(width: 8),
-          Text(title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
@@ -367,12 +505,17 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: value ? accent.withValues(alpha: 0.5) : Theme.of(context).dividerColor,
+          color: value
+              ? accent.withValues(alpha: 0.5)
+              : Theme.of(context).dividerColor,
           width: value ? 1.2 : 0.8,
         ),
       ),
       child: SwitchListTile(
-        title: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        title: Text(
+          title,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
         subtitle: Text(subtitle, style: const TextStyle(fontSize: 11)),
         value: value,
         activeThumbColor: accent,

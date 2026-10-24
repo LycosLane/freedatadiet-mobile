@@ -13,7 +13,9 @@ class StorageItem {
   final bool isLink;
   final bool isDuplicate;
   final String? duplicateGroupId;
-  final bool isScanning; // true while folder size is being calculated in the background
+  final bool
+  isScanning; // true while folder size is being calculated in the background
+  final bool hasErrors; // true if some content could not be read, so the size is a lower bound
 
   const StorageItem({
     required this.path,
@@ -28,6 +30,7 @@ class StorageItem {
     this.isDuplicate = false,
     this.duplicateGroupId,
     this.isScanning = false,
+    this.hasErrors = false,
   });
 
   String get badge {
@@ -50,6 +53,7 @@ class StorageItem {
     bool? isDuplicate,
     String? duplicateGroupId,
     bool? isScanning,
+    bool? hasErrors,
     bool clearDuplicateGroup = false,
   }) {
     return StorageItem(
@@ -63,8 +67,11 @@ class StorageItem {
       isSystem: isSystem ?? this.isSystem,
       isLink: isLink ?? this.isLink,
       isDuplicate: isDuplicate ?? this.isDuplicate,
-      duplicateGroupId: clearDuplicateGroup ? null : (duplicateGroupId ?? this.duplicateGroupId),
+      duplicateGroupId: clearDuplicateGroup
+          ? null
+          : (duplicateGroupId ?? this.duplicateGroupId),
       isScanning: isScanning ?? this.isScanning,
+      hasErrors: hasErrors ?? this.hasErrors,
     );
   }
 }

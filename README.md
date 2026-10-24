@@ -1,6 +1,6 @@
 # FreeDataDiet Mobile
 
-[![Version: 1.4.1](https://img.shields.io/badge/version-1.4.1-blue.svg)](https://github.com/LycosLane)
+[![Version: 1.5.0](https://img.shields.io/badge/version-1.5.0-blue.svg)](https://github.com/LycosLane)
 [![Platform: Android | Linux Mobile](https://img.shields.io/badge/Platform-Android%20%7C%20Linux%20Mobile-0078D6.svg)](https://github.com/LycosLane)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Zero Telemetry](https://img.shields.io/badge/Telemetry-Zero-brightgreen.svg)]()
@@ -40,7 +40,7 @@ See how much space apps use for their cache. Tap any app to open Android setting
   <img src="docs/screenshots/freedatadietmobile-settings-dark.png" width="300" alt="FreeDataDiet Filters and Preferences">
 </p>
 
-Filter what you see. Turn off images to focus on videos, search by file extension like `.pdf` or `.zip`, and find duplicate files.
+Filter what you see. Turn off images to focus on videos, search by file extension like `.pdf` or `.zip`, find duplicate files, and skip folders you do not care about.
 
 ---
 
@@ -51,6 +51,7 @@ Filter what you see. Turn off images to focus on videos, search by file extensio
 * **No ads:** No ads, no subscriptions, no popups.
 * **No fake tools:** No placebo RAM cleaners or fake CPU coolers. You see real files and decide what to delete.
 * **Open source:** Free software licensed under the MIT license.
+* **Written down:** Read the short [privacy policy](PRIVACY.md).
 
 ---
 
@@ -58,6 +59,7 @@ Filter what you see. Turn off images to focus on videos, search by file extensio
 
 * **All Files Access:** Needed on Android 11+ to read file and folder sizes.
 * **Usage Access:** Needed to check app cache sizes directly from Android system settings.
+* **See all apps:** Needed to list every installed app in the App Diet view.
 
 ---
 

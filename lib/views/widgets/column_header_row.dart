@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../models/user_settings.dart';
 
@@ -40,9 +41,7 @@ class ColumnHeaderRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: headerColor,
-        border: Border(
-          bottom: BorderSide(color: theme.dividerColor, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: theme.dividerColor, width: 1)),
       ),
       child: Row(
         children: [
@@ -91,7 +90,9 @@ class ColumnHeaderRow extends StatelessWidget {
     final isActive = activeColumn == column;
     final isDark = theme.brightness == Brightness.dark;
     final activeTextColor = theme.colorScheme.primary;
-    final defaultTextColor = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    final defaultTextColor = isDark
+        ? AppColors.darkTextSecondary
+        : AppColors.lightTextSecondary;
 
     return InkWell(
       onTap: () => _handleColumnClick(column),
@@ -113,7 +114,9 @@ class ColumnHeaderRow extends StatelessWidget {
             const SizedBox(width: 3),
             if (isActive)
               Icon(
-                isDescending ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                isDescending
+                    ? Icons.arrow_downward_rounded
+                    : Icons.arrow_upward_rounded,
                 size: 13 * textScale,
                 color: activeTextColor,
               )

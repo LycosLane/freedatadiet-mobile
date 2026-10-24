@@ -1,11 +1,21 @@
 import 'package:flutter/material.dart';
+
 import 'duplicate_rule.dart';
 import 'saved_location.dart';
 
 enum BarScalingMode {
-  largestItem('Largest Item in View', 'Bars scale relative to the largest item visible.'),
-  folderTotal('Current Folder Total', 'Bars scale relative to the total size of the current folder.'),
-  driveTotal('Total Disk Capacity', 'Bars scale relative to the entire storage volume.');
+  largestItem(
+    'Largest Item in View',
+    'Bars scale relative to the largest item visible.',
+  ),
+  folderTotal(
+    'Current Folder Total',
+    'Bars scale relative to the total size of the current folder.',
+  ),
+  driveTotal(
+    'Total Disk Capacity',
+    'Bars scale relative to the entire storage volume.',
+  );
 
   final String label;
   final String description;
@@ -23,6 +33,14 @@ enum SortColumn {
 }
 
 class UserSettings {
+  /// Sensible folders to skip for everyone. Users can edit the list and restore these any time.
+  static const List<String> defaultExcludedPatterns = [
+    '.git',
+    '.thumbnails',
+    '.cache',
+    'Android/data',
+  ];
+
   final ThemeMode themeMode;
   final BarScalingMode barScalingMode;
   final SortColumn sortColumn;
@@ -56,7 +74,7 @@ class UserSettings {
     this.barScalingMode = BarScalingMode.largestItem,
     this.sortColumn = SortColumn.size,
     this.sortDescending = true,
-    this.excludedPatterns = const ['.git', '.thumbnails', '.cache', 'Android/data'],
+    this.excludedPatterns = defaultExcludedPatterns,
     this.textScale = 1.0,
     this.customFilterText = '',
     this.showImages = true,
@@ -69,13 +87,45 @@ class UserSettings {
     this.showDuplicatesOnly = false,
     this.duplicateCriteria = const DuplicateMatchCriteria(),
     this.locations = const [
-      SavedLocation(id: 'internal', name: 'Internal Storage', path: '/storage/emulated/0', type: 'internal'),
-      SavedLocation(id: 'fav_downloads', name: 'Downloads', path: '/storage/emulated/0/Download', type: 'favorite'),
-      SavedLocation(id: 'fav_documents', name: 'Documents', path: '/storage/emulated/0/Documents', type: 'favorite'),
-      SavedLocation(id: 'fav_dcim', name: 'Camera (DCIM)', path: '/storage/emulated/0/DCIM', type: 'favorite'),
-      SavedLocation(id: 'apps_diet', name: 'Apps & Cache Diet', path: '', type: 'apps_diet'),
+      SavedLocation(
+        id: 'internal',
+        name: 'Internal Storage',
+        path: '/storage/emulated/0',
+        type: 'internal',
+      ),
+      SavedLocation(
+        id: 'fav_downloads',
+        name: 'Downloads',
+        path: '/storage/emulated/0/Download',
+        type: 'favorite',
+      ),
+      SavedLocation(
+        id: 'fav_documents',
+        name: 'Documents',
+        path: '/storage/emulated/0/Documents',
+        type: 'favorite',
+      ),
+      SavedLocation(
+        id: 'fav_dcim',
+        name: 'Camera (DCIM)',
+        path: '/storage/emulated/0/DCIM',
+        type: 'favorite',
+      ),
+      SavedLocation(
+        id: 'apps_diet',
+        name: 'Apps & Cache Diet',
+        path: '',
+        type: 'apps_diet',
+      ),
     ],
   });
+
+  /// True if the excluded-folder list differs from the defaults.
+  bool get hasCustomExclusions {
+    final a = excludedPatterns.map((e) => e.toLowerCase()).toSet();
+    final b = defaultExcludedPatterns.map((e) => e.toLowerCase()).toSet();
+    return a.length != b.length || !a.containsAll(b);
+  }
 
   /// True if any non-default visibility filter or search is active.
   bool get hasActiveFilters =>

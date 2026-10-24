@@ -1,6 +1,8 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/duplicate_rule.dart';
 import '../models/saved_location.dart';
 import '../models/user_settings.dart';
@@ -39,16 +41,23 @@ class SettingsService {
     final prefs = await SharedPreferences.getInstance();
 
     final themeIndex = prefs.getInt(_keyThemeMode) ?? ThemeMode.dark.index;
-    final themeMode = ThemeMode.values.elementAtOrNull(themeIndex) ?? ThemeMode.dark;
+    final themeMode =
+        ThemeMode.values.elementAtOrNull(themeIndex) ?? ThemeMode.dark;
 
-    final scalingIndex = prefs.getInt(_keyBarScaling) ?? BarScalingMode.largestItem.index;
-    final barScaling = BarScalingMode.values.elementAtOrNull(scalingIndex) ?? BarScalingMode.largestItem;
+    final scalingIndex =
+        prefs.getInt(_keyBarScaling) ?? BarScalingMode.largestItem.index;
+    final barScaling =
+        BarScalingMode.values.elementAtOrNull(scalingIndex) ??
+        BarScalingMode.largestItem;
 
     final sortColIndex = prefs.getInt(_keySortColumn) ?? SortColumn.size.index;
-    final sortColumn = SortColumn.values.elementAtOrNull(sortColIndex) ?? SortColumn.size;
+    final sortColumn =
+        SortColumn.values.elementAtOrNull(sortColIndex) ?? SortColumn.size;
     final sortDesc = prefs.getBool(_keySortDescending) ?? true;
 
-    final textScale = (prefs.getDouble(_keyTextScale) ?? 1.0).clamp(0.8, 1.6).toDouble();
+    final textScale = (prefs.getDouble(_keyTextScale) ?? 1.0)
+        .clamp(0.8, 1.6)
+        .toDouble();
     final customFilter = prefs.getString(_keyCustomFilter) ?? '';
 
     // "What's Shown" - Default is true for all categories!
@@ -69,26 +78,50 @@ class SettingsService {
     // Locations & Favorites
     final locationsRaw = prefs.getString(_keyLocations);
     List<SavedLocation> locations = const [
-      SavedLocation(id: 'internal', name: 'Internal Storage', path: '/storage/emulated/0', type: 'internal'),
-      SavedLocation(id: 'fav_downloads', name: 'Downloads', path: '/storage/emulated/0/Download', type: 'favorite'),
-      SavedLocation(id: 'fav_documents', name: 'Documents', path: '/storage/emulated/0/Documents', type: 'favorite'),
-      SavedLocation(id: 'fav_dcim', name: 'Camera (DCIM)', path: '/storage/emulated/0/DCIM', type: 'favorite'),
-      SavedLocation(id: 'apps_diet', name: 'Apps & Cache Diet', path: '', type: 'apps_diet'),
+      SavedLocation(
+        id: 'internal',
+        name: 'Internal Storage',
+        path: '/storage/emulated/0',
+        type: 'internal',
+      ),
+      SavedLocation(
+        id: 'fav_downloads',
+        name: 'Downloads',
+        path: '/storage/emulated/0/Download',
+        type: 'favorite',
+      ),
+      SavedLocation(
+        id: 'fav_documents',
+        name: 'Documents',
+        path: '/storage/emulated/0/Documents',
+        type: 'favorite',
+      ),
+      SavedLocation(
+        id: 'fav_dcim',
+        name: 'Camera (DCIM)',
+        path: '/storage/emulated/0/DCIM',
+        type: 'favorite',
+      ),
+      SavedLocation(
+        id: 'apps_diet',
+        name: 'Apps & Cache Diet',
+        path: '',
+        type: 'apps_diet',
+      ),
     ];
 
     if (locationsRaw != null) {
       try {
         final List<dynamic> list = jsonDecode(locationsRaw) as List<dynamic>;
-        locations = list.map((item) => SavedLocation.fromMap(item as Map<String, dynamic>)).toList();
+        locations = list
+            .map((item) => SavedLocation.fromMap(item as Map<String, dynamic>))
+            .toList();
       } catch (_) {}
     }
 
-    final exclusions = prefs.getStringList(_keyExclusions) ?? [
-      '.git',
-      '.thumbnails',
-      '.cache',
-      'Android/data',
-    ];
+    final exclusions =
+        prefs.getStringList(_keyExclusions) ??
+        UserSettings.defaultExcludedPatterns;
 
     return UserSettings(
       themeMode: themeMode,
@@ -138,9 +171,14 @@ class SettingsService {
     await prefs.setBool(_keyShowDupsOnly, settings.showDuplicatesOnly);
     await prefs.setBool(_keyDupMatchSize, settings.duplicateCriteria.matchSize);
     await prefs.setBool(_keyDupMatchName, settings.duplicateCriteria.matchName);
-    await prefs.setBool(_keyDupMatchTimestamp, settings.duplicateCriteria.matchTimestamp);
+    await prefs.setBool(
+      _keyDupMatchTimestamp,
+      settings.duplicateCriteria.matchTimestamp,
+    );
 
-    final locationsJson = jsonEncode(settings.locations.map((l) => l.toMap()).toList());
+    final locationsJson = jsonEncode(
+      settings.locations.map((l) => l.toMap()).toList(),
+    );
     await prefs.setString(_keyLocations, locationsJson);
   }
 }

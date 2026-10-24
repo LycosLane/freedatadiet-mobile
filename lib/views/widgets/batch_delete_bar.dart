@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/size_formatter.dart';
 
@@ -43,9 +44,7 @@ class BatchDeleteBar extends StatelessWidget {
             offset: const Offset(0, -2),
           ),
         ],
-        border: Border(
-          top: BorderSide(color: theme.dividerColor, width: 1),
-        ),
+        border: Border(top: BorderSide(color: theme.dividerColor, width: 1)),
       ),
       child: SafeArea(
         top: false,
@@ -64,13 +63,18 @@ class BatchDeleteBar extends StatelessWidget {
                 children: [
                   Text(
                     '$selectedCount selected',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   Text(
                     SizeFormatter.formatBytes(selectedTotalBytes),
                     style: TextStyle(
                       fontSize: 11.5,
-                      color: hasSelection ? AppColors.accentRose : theme.hintColor,
+                      color: hasSelection
+                          ? AppColors.accentRose
+                          : theme.hintColor,
                       fontWeight: FontWeight.w600,
                       fontFamily: 'monospace',
                     ),
@@ -86,7 +90,9 @@ class BatchDeleteBar extends StatelessWidget {
                   color: isFavorite ? AppColors.accentAmber : theme.hintColor,
                   size: 24,
                 ),
-                tooltip: isFavorite ? 'Remove from favorites' : 'Mark as favorite',
+                tooltip: isFavorite
+                    ? 'Remove from favorites'
+                    : 'Mark as favorite',
                 onPressed: onToggleFavorite,
               ),
               const SizedBox(width: 4),
@@ -103,7 +109,9 @@ class BatchDeleteBar extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.accentRose,
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: AppColors.accentRose.withValues(alpha: 0.3),
+                disabledBackgroundColor: AppColors.accentRose.withValues(
+                  alpha: 0.3,
+                ),
               ),
             ),
           ],

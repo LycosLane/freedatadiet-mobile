@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
 import '../core/theme/app_colors.dart';
 import '../core/utils/size_formatter.dart';
 import '../models/app_storage_info.dart';
@@ -25,9 +29,12 @@ class AppDietView extends StatefulWidget {
 class _AppDietViewState extends State<AppDietView> {
   List<AppStorageInfo> _allApps = [];
   bool _isLoading = false;
+  int _loadGeneration = 0;
+  int _statsDone = 0;
   String _searchFilter = '';
   AppSortMode _sortMode = AppSortMode.cacheDesc;
-  bool _showSystemApps = false; // System apps hidden by default, user apps always shown
+  bool _showSystemApps =
+      false; // System apps hidden by default, user apps always shown
 
   @override
   void initState() {
@@ -35,13 +42,56 @@ class _AppDietViewState extends State<AppDietView> {
     _loadAppStats();
   }
 
+  /// Loads the app list instantly (names only), then streams the sizes in small batches
+  /// so the user can already scroll and tap while the numbers fill in.
   Future<void> _loadAppStats() async {
-    setState(() => _isLoading = true);
-    final apps = await PlatformBridgeService.getInstalledAppsUsage();
-    if (mounted) {
+    final generation = ++_loadGeneration;
+    setState(() {
+      _isLoading = true;
+      _statsDone = 0;
+    });
+
+    final basics = await PlatformBridgeService.getInstalledAppsBasic();
+    if (!mounted || generation != _loadGeneration) return;
+    setState(() {
+      _allApps = basics;
+      _isLoading = false;
+    });
+
+    unawaited(_loadStatsInBatches(generation, basics));
+  }
+
+  Future<void> _loadStatsInBatches(
+    int generation,
+    List<AppStorageInfo> basics,
+  ) async {
+    const batchSize = 24;
+    // User apps first: they are what people care about and what they see on top.
+    final ordered = [
+      ...basics.where((a) => !a.isSystemApp),
+      ...basics.where((a) => a.isSystemApp),
+    ];
+
+    for (var i = 0; i < ordered.length; i += batchSize) {
+      final batch = ordered.sublist(i, math.min(i + batchSize, ordered.length));
+      final stats = await PlatformBridgeService.getAppStats(
+        batch.map((a) => a.packageName).toList(),
+      );
+      if (!mounted || generation != _loadGeneration) return;
+
       setState(() {
-        _allApps = apps;
-        _isLoading = false;
+        final indexByPackage = {
+          for (var k = 0; k < _allApps.length; k++) _allApps[k].packageName: k,
+        };
+        for (final app in batch) {
+          final index = indexByPackage[app.packageName];
+          if (index == null) continue;
+          final result = stats[app.packageName];
+          _allApps[index] = result != null
+              ? _allApps[index].withStats(result)
+              : _allApps[index].withoutStats();
+        }
+        _statsDone += batch.length;
       });
     }
   }
@@ -59,15 +109,29 @@ class _AppDietViewState extends State<AppDietView> {
       return true;
     }).toList();
 
+    // Apps whose sizes are still being calculated stay on top when sorting by size, like folders do.
+    int pendingFirst(AppStorageInfo a, AppStorageInfo b) {
+      if (a.isCalculating == b.isCalculating) return 0;
+      return a.isCalculating ? -1 : 1;
+    }
+
     switch (_sortMode) {
       case AppSortMode.cacheDesc:
-        list.sort((a, b) => b.cacheBytes.compareTo(a.cacheBytes));
+        list.sort((a, b) {
+          final p = pendingFirst(a, b);
+          return p != 0 ? p : b.cacheBytes.compareTo(a.cacheBytes);
+        });
         break;
       case AppSortMode.totalDesc:
-        list.sort((a, b) => b.totalBytes.compareTo(a.totalBytes));
+        list.sort((a, b) {
+          final p = pendingFirst(a, b);
+          return p != 0 ? p : b.totalBytes.compareTo(a.totalBytes);
+        });
         break;
       case AppSortMode.nameAsc:
-        list.sort((a, b) => a.appName.toLowerCase().compareTo(b.appName.toLowerCase()));
+        list.sort(
+          (a, b) => a.appName.toLowerCase().compareTo(b.appName.toLowerCase()),
+        );
         break;
     }
 
@@ -80,13 +144,32 @@ class _AppDietViewState extends State<AppDietView> {
     final filtered = _filteredApps;
 
     final totalCache = _allApps.fold<int>(0, (sum, a) => sum + a.cacheBytes);
-    final totalFootprint = _allApps.fold<int>(0, (sum, a) => sum + a.totalBytes);
+    final totalFootprint = _allApps.fold<int>(
+      0,
+      (sum, a) => sum + a.totalBytes,
+    );
     final maxAppSize = filtered.isNotEmpty
-        ? (_sortMode == AppSortMode.cacheDesc ? filtered.first.cacheBytes : filtered.first.totalBytes)
+        ? math.max(
+            1,
+            filtered
+                .map(
+                  (a) => _sortMode == AppSortMode.cacheDesc
+                      ? a.cacheBytes
+                      : a.totalBytes,
+                )
+                .reduce(math.max),
+          )
         : 1;
+    final isCalculatingStats =
+        _allApps.isNotEmpty && _statsDone < _allApps.length;
 
     return Column(
       children: [
+        if (isCalculatingStats)
+          LinearProgressIndicator(
+            minHeight: 2,
+            value: _allApps.isEmpty ? null : _statsDone / _allApps.length,
+          ),
         // Usage Stats Permission Banner if not granted
         if (!widget.hasUsageStatsPermission)
           Container(
@@ -94,7 +177,11 @@ class _AppDietViewState extends State<AppDietView> {
             color: AppColors.accentAmber.withValues(alpha: 0.15),
             child: Row(
               children: [
-                const Icon(Icons.info_outline, color: AppColors.accentAmber, size: 20),
+                const Icon(
+                  Icons.info_outline,
+                  color: AppColors.accentAmber,
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
                 const Expanded(
                   child: Text(
@@ -104,7 +191,10 @@ class _AppDietViewState extends State<AppDietView> {
                 ),
                 TextButton(
                   onPressed: widget.onRequestPermission,
-                  child: const Text('Grant Access', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Grant Access',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
@@ -154,7 +244,9 @@ class _AppDietViewState extends State<AppDietView> {
                           hintStyle: const TextStyle(fontSize: 12),
                           prefixIcon: const Icon(Icons.search, size: 16),
                           isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                          ),
                           filled: true,
                           fillColor: theme.scaffoldBackgroundColor,
                           border: OutlineInputBorder(
@@ -172,7 +264,10 @@ class _AppDietViewState extends State<AppDietView> {
                   const SizedBox(width: 8),
                   // System Apps toggle chip: user apps always shown, system apps optional
                   FilterChip(
-                    label: const Text('System Apps', style: TextStyle(fontSize: 11.5)),
+                    label: const Text(
+                      'System Apps',
+                      style: TextStyle(fontSize: 11.5),
+                    ),
                     selected: _showSystemApps,
                     onSelected: (val) => setState(() => _showSystemApps = val),
                     visualDensity: VisualDensity.compact,
@@ -208,35 +303,47 @@ class _AppDietViewState extends State<AppDietView> {
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : filtered.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No matching apps found',
-                        style: TextStyle(color: theme.hintColor),
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadAppStats,
-                      child: ListView.builder(
-                        itemCount: filtered.length,
-                        itemBuilder: (context, index) {
-                          final app = filtered[index];
-                          final targetBytes = _sortMode == AppSortMode.cacheDesc ? app.cacheBytes : app.totalBytes;
-                          final ratio = SizeFormatter.calculateRatio(targetBytes, maxAppSize);
+              ? Center(
+                  child: Text(
+                    'No matching apps found',
+                    style: TextStyle(color: theme.hintColor),
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadAppStats,
+                  child: ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final app = filtered[index];
+                      final targetBytes = _sortMode == AppSortMode.cacheDesc
+                          ? app.cacheBytes
+                          : app.totalBytes;
+                      final ratio = SizeFormatter.calculateRatio(
+                        targetBytes,
+                        maxAppSize,
+                      );
 
-                          return AppItemTile(
-                            app: app,
-                            ratio: ratio,
-                            onOpenStorageSettings: () => PlatformBridgeService.openAppStorageSettings(app.packageName),
-                          );
-                        },
-                      ),
-                    ),
+                      return AppItemTile(
+                        app: app,
+                        ratio: ratio,
+                        onOpenStorageSettings: () =>
+                            PlatformBridgeService.openAppStorageSettings(
+                              app.packageName,
+                            ),
+                      );
+                    },
+                  ),
+                ),
         ),
       ],
     );
   }
 
-  Widget _buildSummaryMetric({required String label, required String value, required Color color}) {
+  Widget _buildSummaryMetric({
+    required String label,
+    required String value,
+    required Color color,
+  }) {
     return Column(
       children: [
         Text(

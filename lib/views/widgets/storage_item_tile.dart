@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/size_formatter.dart';
 import '../../models/storage_item.dart';
@@ -32,7 +33,9 @@ class StorageItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final secondaryTextColor = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    final secondaryTextColor = isDark
+        ? AppColors.darkTextSecondary
+        : AppColors.lightTextSecondary;
 
     final dateColWidth = 85.0 * textScale.clamp(0.9, 1.3);
     final sizeColWidth = 78.0 * textScale.clamp(0.9, 1.3);
@@ -46,8 +49,8 @@ class StorageItemTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? (isDark
-                  ? AppColors.primary.withValues(alpha: 0.18)
-                  : AppColors.primary.withValues(alpha: 0.08))
+                    ? AppColors.primary.withValues(alpha: 0.18)
+                    : AppColors.primary.withValues(alpha: 0.08))
               : Colors.transparent,
           border: Border(
             bottom: BorderSide(color: theme.dividerColor, width: 0.5),
@@ -82,14 +85,19 @@ class StorageItemTile extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: (13.0 * textScale).clamp(9.0, 22.0),
-                            fontWeight: item.isDirectory ? FontWeight.w600 : FontWeight.w400,
+                            fontWeight: item.isDirectory
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                           ),
                         ),
                       ),
                       if (item.isScanning) ...[
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.primary.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(3),
@@ -121,12 +129,19 @@ class StorageItemTile extends StatelessWidget {
                       if (item.isDuplicate) ...[
                         const SizedBox(width: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
                           decoration: BoxDecoration(
-                            color: AppColors.accentAmber.withValues(alpha: 0.18),
+                            color: AppColors.accentAmber.withValues(
+                              alpha: 0.18,
+                            ),
                             borderRadius: BorderRadius.circular(3),
                             border: Border.all(
-                              color: AppColors.accentAmber.withValues(alpha: 0.6),
+                              color: AppColors.accentAmber.withValues(
+                                alpha: 0.6,
+                              ),
                               width: 0.7,
                             ),
                           ),
@@ -163,7 +178,7 @@ class StorageItemTile extends StatelessWidget {
                 // Size Column
                 SizedBox(
                   width: sizeColWidth,
-                  child: item.isScanning
+                  child: item.isScanning && item.size == 0
                       ? Align(
                           alignment: Alignment.centerRight,
                           child: SizedBox(
@@ -171,17 +186,25 @@ class StorageItemTile extends StatelessWidget {
                             height: 12,
                             child: CircularProgressIndicator(
                               strokeWidth: 1.5,
-                              color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.7,
+                              ),
                             ),
                           ),
                         )
                       : Text(
-                          SizeFormatter.formatBytes(item.size),
+                          // A running total (still scanning) or a size with unreadable parts is a lower bound.
+                          '${item.isScanning || item.hasErrors ? '≥ ' : ''}${SizeFormatter.formatBytes(item.size)}',
                           textAlign: TextAlign.right,
                           style: TextStyle(
                             fontSize: (12.5 * textScale).clamp(9.0, 19.0),
                             fontWeight: FontWeight.w600,
                             fontFamily: 'monospace',
+                            color: item.isScanning
+                                ? theme.colorScheme.primary.withValues(
+                                    alpha: 0.8,
+                                  )
+                                : null,
                           ),
                         ),
                 ),
