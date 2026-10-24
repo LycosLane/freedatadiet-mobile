@@ -1,4 +1,5 @@
 import 'dart:io' show Directory, File, Link;
+import 'dart:isolate';
 
 import '../core/utils/path_rules.dart';
 import '../models/storage_item.dart';
@@ -103,6 +104,22 @@ class StorageScannerService {
       items: results,
       pathExists: true,
       hadErrors: hadErrors,
+    );
+  }
+
+  /// Asynchronously offloads directory listing to a background isolate.
+  /// Prevents main-isolate frame drops during slow IO on degraded SD cards or USB OTG drives.
+  static Future<ShallowListing> listDirectoryAsync({
+    required String path,
+    required bool showHidden,
+    required List<String> excludedPatterns,
+  }) {
+    return Isolate.run(
+      () => listDirectory(
+        path: path,
+        showHidden: showHidden,
+        excludedPatterns: excludedPatterns,
+      ),
     );
   }
 }

@@ -3,7 +3,7 @@ class AppConstants {
   AppConstants._();
 
   static const String appName = 'FreeDataDiet';
-  static const String appVersion = '1.6.1';
+  static const String appVersion = '1.6.2';
 
   // Desktop-aligned badges
   static const String badgeDir = '[DIR]';

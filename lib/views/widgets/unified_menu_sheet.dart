@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../models/user_settings.dart';
+import '../../services/settings_service.dart';
 import 'excluded_folders_section.dart';
 
 /// Single unified bottom sheet containing:
@@ -482,6 +483,37 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
                     }).toList(),
                   ),
                 ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 12),
+
+                // Reset Settings to Defaults
+                _buildSectionHeader(
+                  'Maintenance & Reset',
+                  Icons.settings_backup_restore_rounded,
+                  AppColors.accentAmber,
+                ),
+                const SizedBox(height: 6),
+                OutlinedButton.icon(
+                  onPressed: _showResetConfirmation,
+                  icon: const Icon(
+                    Icons.restart_alt_rounded,
+                    color: AppColors.accentRose,
+                  ),
+                  label: const Text(
+                    'Reset All Settings to Factory Defaults',
+                    style: TextStyle(
+                      color: AppColors.accentRose,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                      color: AppColors.accentRose.withValues(alpha: 0.5),
+                    ),
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                ),
                 const SizedBox(height: 24),
               ],
             ),
@@ -489,6 +521,50 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
         ],
       ),
     );
+  }
+
+  Future<void> _showResetConfirmation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.accentRose),
+            SizedBox(width: 8),
+            Text('Reset Settings?'),
+          ],
+        ),
+        content: const Text(
+          'This will restore all filter toggles, theme, sorting, and default excluded folders to their initial factory settings.\n\nYour actual files and storage are not modified.',
+          style: TextStyle(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.accentRose),
+            child: const Text('Reset Defaults'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final defaults = await SettingsService.resetToDefaults();
+      _updateSettings(defaults);
+      _filterTextController.text = defaults.customFilterText;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('All settings restored to factory defaults.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildSectionHeader(String title, IconData icon, Color accent) {

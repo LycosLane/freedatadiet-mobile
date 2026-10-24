@@ -37,118 +37,135 @@ class SettingsService {
   // Reorderable Locations & Favorites
   static const String _keyLocations = 'saved_locations_json';
 
-  /// Loads saved settings or returns defaults.
+  /// Loads saved settings or returns safe factory defaults on any corruption/IO failure.
   static Future<UserSettings> loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    final themeIndex = prefs.getInt(_keyThemeMode) ?? ThemeMode.dark.index;
-    final themeMode =
-        ThemeMode.values.elementAtOrNull(themeIndex) ?? ThemeMode.dark;
+      final themeIndex = prefs.getInt(_keyThemeMode) ?? ThemeMode.dark.index;
+      final themeMode =
+          ThemeMode.values.elementAtOrNull(themeIndex) ?? ThemeMode.dark;
 
-    final scalingIndex =
-        prefs.getInt(_keyBarScaling) ?? BarScalingMode.largestItem.index;
-    final barScaling =
-        BarScalingMode.values.elementAtOrNull(scalingIndex) ??
-        BarScalingMode.largestItem;
+      final scalingIndex =
+          prefs.getInt(_keyBarScaling) ?? BarScalingMode.largestItem.index;
+      final barScaling =
+          BarScalingMode.values.elementAtOrNull(scalingIndex) ??
+          BarScalingMode.largestItem;
 
-    final sortColIndex = prefs.getInt(_keySortColumn) ?? SortColumn.size.index;
-    final sortColumn =
-        SortColumn.values.elementAtOrNull(sortColIndex) ?? SortColumn.size;
-    final sortDesc = prefs.getBool(_keySortDescending) ?? true;
+      final sortColIndex =
+          prefs.getInt(_keySortColumn) ?? SortColumn.size.index;
+      final sortColumn =
+          SortColumn.values.elementAtOrNull(sortColIndex) ?? SortColumn.size;
+      final sortDesc = prefs.getBool(_keySortDescending) ?? true;
 
-    final textScale = (prefs.getDouble(_keyTextScale) ?? 1.0)
-        .clamp(0.8, 1.6)
-        .toDouble();
-    final customFilter = prefs.getString(_keyCustomFilter) ?? '';
+      final textScale = (prefs.getDouble(_keyTextScale) ?? 1.0)
+          .clamp(0.8, 1.6)
+          .toDouble();
+      final customFilter = prefs.getString(_keyCustomFilter) ?? '';
 
-    // "What's Shown" - Default is true for all categories!
-    final showImages = prefs.getBool(_keyShowImages) ?? true;
-    final showVideos = prefs.getBool(_keyShowVideos) ?? true;
-    final showAudio = prefs.getBool(_keyShowAudio) ?? true;
-    final showDocuments = prefs.getBool(_keyShowDocuments) ?? true;
-    final showArchives = prefs.getBool(_keyShowArchives) ?? true;
-    final includeSubfolders = prefs.getBool(_keyIncludeSubfolders) ?? false;
-    final showHidden = prefs.getBool(_keyShowHidden) ?? false;
+      // "What's Shown" - Default is true for all categories!
+      final showImages = prefs.getBool(_keyShowImages) ?? true;
+      final showVideos = prefs.getBool(_keyShowVideos) ?? true;
+      final showAudio = prefs.getBool(_keyShowAudio) ?? true;
+      final showDocuments = prefs.getBool(_keyShowDocuments) ?? true;
+      final showArchives = prefs.getBool(_keyShowArchives) ?? true;
+      final includeSubfolders = prefs.getBool(_keyIncludeSubfolders) ?? false;
+      final showHidden = prefs.getBool(_keyShowHidden) ?? false;
 
-    // Duplicates
-    final showDupsOnly = prefs.getBool(_keyShowDupsOnly) ?? false;
-    final matchSize = prefs.getBool(_keyDupMatchSize) ?? true;
-    final matchName = prefs.getBool(_keyDupMatchName) ?? true;
-    final matchTimestamp = prefs.getBool(_keyDupMatchTimestamp) ?? false;
-    final verifyHash = prefs.getBool(_keyDupVerifyHash) ?? false;
+      // Duplicates
+      final showDupsOnly = prefs.getBool(_keyShowDupsOnly) ?? false;
+      final matchSize = prefs.getBool(_keyDupMatchSize) ?? true;
+      final matchName = prefs.getBool(_keyDupMatchName) ?? true;
+      final matchTimestamp = prefs.getBool(_keyDupMatchTimestamp) ?? false;
+      final verifyHash = prefs.getBool(_keyDupVerifyHash) ?? false;
 
-    // Locations & Favorites
-    final locationsRaw = prefs.getString(_keyLocations);
-    List<SavedLocation> locations = const [
-      SavedLocation(
-        id: 'internal',
-        name: 'Internal Storage',
-        path: '/storage/emulated/0',
-        type: 'internal',
-      ),
-      SavedLocation(
-        id: 'fav_downloads',
-        name: 'Downloads',
-        path: '/storage/emulated/0/Download',
-        type: 'favorite',
-      ),
-      SavedLocation(
-        id: 'fav_documents',
-        name: 'Documents',
-        path: '/storage/emulated/0/Documents',
-        type: 'favorite',
-      ),
-      SavedLocation(
-        id: 'fav_dcim',
-        name: 'Camera (DCIM)',
-        path: '/storage/emulated/0/DCIM',
-        type: 'favorite',
-      ),
-      SavedLocation(
-        id: 'apps_diet',
-        name: 'Apps & Cache Diet',
-        path: '',
-        type: 'apps_diet',
-      ),
-    ];
+      // Locations & Favorites
+      final locationsRaw = prefs.getString(_keyLocations);
+      List<SavedLocation> locations = const [
+        SavedLocation(
+          id: 'internal',
+          name: 'Internal Storage',
+          path: '/storage/emulated/0',
+          type: 'internal',
+        ),
+        SavedLocation(
+          id: 'fav_downloads',
+          name: 'Downloads',
+          path: '/storage/emulated/0/Download',
+          type: 'favorite',
+        ),
+        SavedLocation(
+          id: 'fav_documents',
+          name: 'Documents',
+          path: '/storage/emulated/0/Documents',
+          type: 'favorite',
+        ),
+        SavedLocation(
+          id: 'fav_dcim',
+          name: 'Camera (DCIM)',
+          path: '/storage/emulated/0/DCIM',
+          type: 'favorite',
+        ),
+        SavedLocation(
+          id: 'apps_diet',
+          name: 'Apps & Cache Diet',
+          path: '',
+          type: 'apps_diet',
+        ),
+      ];
 
-    if (locationsRaw != null) {
-      try {
-        final List<dynamic> list = jsonDecode(locationsRaw) as List<dynamic>;
-        locations = list
-            .map((item) => SavedLocation.fromMap(item as Map<String, dynamic>))
-            .toList();
-      } catch (_) {}
+      if (locationsRaw != null) {
+        try {
+          final List<dynamic> list = jsonDecode(locationsRaw) as List<dynamic>;
+          locations = list
+              .map(
+                (item) => SavedLocation.fromMap(item as Map<String, dynamic>),
+              )
+              .toList();
+        } catch (_) {}
+      }
+
+      final exclusions =
+          prefs.getStringList(_keyExclusions) ??
+          UserSettings.defaultExcludedPatterns;
+
+      return UserSettings(
+        themeMode: themeMode,
+        barScalingMode: barScaling,
+        sortColumn: sortColumn,
+        sortDescending: sortDesc,
+        excludedPatterns: exclusions,
+        textScale: textScale,
+        customFilterText: customFilter,
+        showImages: showImages,
+        showVideos: showVideos,
+        showAudio: showAudio,
+        showDocuments: showDocuments,
+        showArchives: showArchives,
+        includeSubfolders: includeSubfolders,
+        showHiddenFiles: showHidden,
+        showDuplicatesOnly: showDupsOnly,
+        duplicateCriteria: DuplicateMatchCriteria(
+          matchSize: matchSize,
+          matchName: matchName,
+          matchTimestamp: matchTimestamp,
+          verifyHash: verifyHash,
+        ),
+        locations: locations,
+      );
+    } catch (_) {
+      // Safe fallback if corrupted or interrupted mid-write
+      return const UserSettings();
     }
+  }
 
-    final exclusions =
-        prefs.getStringList(_keyExclusions) ??
-        UserSettings.defaultExcludedPatterns;
-
-    return UserSettings(
-      themeMode: themeMode,
-      barScalingMode: barScaling,
-      sortColumn: sortColumn,
-      sortDescending: sortDesc,
-      excludedPatterns: exclusions,
-      textScale: textScale,
-      customFilterText: customFilter,
-      showImages: showImages,
-      showVideos: showVideos,
-      showAudio: showAudio,
-      showDocuments: showDocuments,
-      showArchives: showArchives,
-      includeSubfolders: includeSubfolders,
-      showHiddenFiles: showHidden,
-      showDuplicatesOnly: showDupsOnly,
-      duplicateCriteria: DuplicateMatchCriteria(
-        matchSize: matchSize,
-        matchName: matchName,
-        matchTimestamp: matchTimestamp,
-        verifyHash: verifyHash,
-      ),
-      locations: locations,
-    );
+  /// Clears stored preferences and restores fresh factory defaults.
+  static Future<UserSettings> resetToDefaults() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+    } catch (_) {}
+    return const UserSettings();
   }
 
   /// Saves updated settings.

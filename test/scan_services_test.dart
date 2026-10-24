@@ -66,6 +66,17 @@ void main() {
       );
       expect(listing.pathExists, false);
     });
+
+    test('listDirectoryAsync runs in background isolate safely', () async {
+      final listing = await StorageScannerService.listDirectoryAsync(
+        path: root.path,
+        showHidden: false,
+        excludedPatterns: const [],
+      );
+      expect(listing.pathExists, true);
+      expect(listing.hadErrors, false);
+      expect(listing.items.map((i) => i.name).toSet(), {'a', 'b', 'top.txt'});
+    });
   });
 
   group('FolderSizeScan', () {

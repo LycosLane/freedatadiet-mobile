@@ -219,16 +219,17 @@ class DiskBrowserViewState extends State<DiskBrowserView> {
     if (widget.settings.includeSubfolders) {
       await _startDeepScan(generation);
     } else {
-      _startFolderScan(generation);
+      await _startFolderScan(generation);
     }
   }
 
-  void _startFolderScan(int generation) {
-    var listing = StorageScannerService.listDirectory(
+  Future<void> _startFolderScan(int generation) async {
+    var listing = await StorageScannerService.listDirectoryAsync(
       path: _currentPath,
       showHidden: widget.settings.showHiddenFiles,
       excludedPatterns: widget.settings.excludedPatterns,
     );
+    if (!mounted || generation != _generation) return;
 
     if (!listing.pathExists) {
       // The folder vanished (deleted elsewhere or storage removed): climb to the nearest folder that still exists.
@@ -243,11 +244,12 @@ class DiskBrowserViewState extends State<DiskBrowserView> {
         return;
       }
       _currentPath = fallback;
-      listing = StorageScannerService.listDirectory(
+      listing = await StorageScannerService.listDirectoryAsync(
         path: _currentPath,
         showHidden: widget.settings.showHiddenFiles,
         excludedPatterns: widget.settings.excludedPatterns,
       );
+      if (!mounted || generation != _generation) return;
     }
 
     final itemsWithDuplicates = DuplicateFinderService.markDuplicates(

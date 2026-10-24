@@ -1,8 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:freedatadiet_mobile/models/saved_location.dart';
 import 'package:freedatadiet_mobile/models/user_settings.dart';
+import 'package:freedatadiet_mobile/services/settings_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('UserSettings & SavedLocation Tests', () {
     test('Default visibility values are opt-out (all true)', () {
       const settings = UserSettings();
@@ -44,6 +48,30 @@ void main() {
       expect(restored.path, '/storage/emulated/0/Podcasts');
       expect(restored.type, 'favorite');
       expect(restored.isFavorite, true);
+    });
+
+    test('SettingsService roundtrip and resetToDefaults', () async {
+      SharedPreferences.setMockInitialValues({});
+      final initial = await SettingsService.loadSettings();
+      expect(initial.showHiddenFiles, false);
+
+      final modified = initial.copyWith(
+        showHiddenFiles: true,
+        customFilterText: 'mp4',
+      );
+      await SettingsService.saveSettings(modified);
+
+      final loaded = await SettingsService.loadSettings();
+      expect(loaded.showHiddenFiles, true);
+      expect(loaded.customFilterText, 'mp4');
+
+      final reset = await SettingsService.resetToDefaults();
+      expect(reset.showHiddenFiles, false);
+      expect(reset.customFilterText, '');
+
+      final afterResetLoaded = await SettingsService.loadSettings();
+      expect(afterResetLoaded.showHiddenFiles, false);
+      expect(afterResetLoaded.customFilterText, '');
     });
   });
 }
