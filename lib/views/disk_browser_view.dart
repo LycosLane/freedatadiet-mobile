@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import '../core/theme/app_colors.dart';
 import '../core/utils/size_formatter.dart';
-import '../models/favorite_folder.dart';
+import '../models/saved_location.dart';
 import '../models/storage_item.dart';
 import '../models/user_settings.dart';
 import '../services/duplicate_finder_service.dart';
@@ -17,13 +17,12 @@ import 'widgets/delete_confirm_dialog.dart';
 import 'widgets/storage_item_tile.dart';
 
 /// Interactive disk usage explorer and cleaner with table header sorting, progressive folder scanning,
-/// fluid pinch-to-zoom scaling, bookmark management, and duplicate clustering.
+/// fluid pinch-to-zoom scaling, folder favoriting, and duplicate clustering.
 class DiskBrowserView extends StatefulWidget {
   final List<String> rootPaths;
   final UserSettings settings;
   final ValueChanged<UserSettings> onSettingsChanged;
   final String searchQuery;
-  final String? activeTypePreset;
   final bool isSelectionMode;
   final ValueChanged<bool> onSelectionModeChanged;
   final VoidCallback onRescanRequested;
@@ -34,7 +33,6 @@ class DiskBrowserView extends StatefulWidget {
     required this.settings,
     required this.onSettingsChanged,
     required this.searchQuery,
-    this.activeTypePreset,
     required this.isSelectionMode,
     required this.onSelectionModeChanged,
     required this.onRescanRequested,
@@ -56,9 +54,7 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
   @override
   void initState() {
     super.initState();
-    // Default to configured startup path or first root path
-    final initialPath = widget.rootPaths.isNotEmpty ? widget.rootPaths.first : widget.settings.defaultStartupPath;
-    _currentPath = initialPath.isNotEmpty ? initialPath : '/storage/emulated/0';
+    _currentPath = widget.rootPaths.isNotEmpty ? widget.rootPaths.first : '/storage/emulated/0';
     _scanCurrentPath();
   }
 
@@ -175,43 +171,49 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
         if (!matchesName && !matchesExt) return false;
       }
 
-      // 2. Show duplicates only
+      // 2. Hidden & protected files check
+      if (!widget.settings.showHiddenFiles && item.name.startsWith('.')) {
+        return false;
+      }
+
+      // 3. Independent "Only show duplicates" check
       if (widget.settings.showDuplicatesOnly) {
         if (item.isDirectory || !item.isDuplicate) return false;
       }
 
-      // 3. Unified Type Filters (Images, Videos, Audio, Documents, Archives)
-      if (widget.settings.hasActiveTypeFilters) {
-        if (item.isDirectory) {
-          // If subfolders are not included, keep folders visible so user can navigate into them!
-          return !widget.settings.includeSubfolders;
-        }
-
+      // 4. "What's Shown" - Opt-out Category Toggles (All active by default)
+      if (!item.isDirectory) {
         final ext = item.extension.toLowerCase();
-        bool matchesAnyType = false;
 
-        if (widget.settings.filterImages &&
-            const ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.dng', '.raw', '.gif', '.bmp'].contains(ext)) {
-          matchesAnyType = true;
+        // Images
+        if (!widget.settings.showImages &&
+            const ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.dng', '.raw', '.gif', '.bmp', '.svg'].contains(ext)) {
+          return false;
         }
-        if (widget.settings.filterVideos &&
+
+        // Videos
+        if (!widget.settings.showVideos &&
             const ['.mp4', '.mkv', '.mov', '.avi', '.webm', '.3gp', '.ts', '.m4v'].contains(ext)) {
-          matchesAnyType = true;
-        }
-        if (widget.settings.filterAudio &&
-            const ['.mp3', '.flac', '.m4a', '.wav', '.ogg', '.opus', '.aac', '.wma'].contains(ext)) {
-          matchesAnyType = true;
-        }
-        if (widget.settings.filterDocuments &&
-            const ['.pdf', '.doc', '.docx', '.txt', '.epub', '.xlsx', '.xls', '.pptx', '.csv', '.md'].contains(ext)) {
-          matchesAnyType = true;
-        }
-        if (widget.settings.filterArchives &&
-            const ['.zip', '.rar', '.7z', '.tar', '.gz', '.apk', '.obb', '.bz2'].contains(ext)) {
-          matchesAnyType = true;
+          return false;
         }
 
-        if (!matchesAnyType) return false;
+        // Audio
+        if (!widget.settings.showAudio &&
+            const ['.mp3', '.flac', '.m4a', '.wav', '.ogg', '.opus', '.aac', '.wma'].contains(ext)) {
+          return false;
+        }
+
+        // Documents
+        if (!widget.settings.showDocuments &&
+            const ['.pdf', '.doc', '.docx', '.txt', '.epub', '.xlsx', '.xls', '.pptx', '.ppt', '.csv', '.md'].contains(ext)) {
+          return false;
+        }
+
+        // Archives & APKs
+        if (!widget.settings.showArchives &&
+            const ['.zip', '.rar', '.7z', '.tar', '.gz', '.apk', '.obb', '.bz2', '.xz'].contains(ext)) {
+          return false;
+        }
       }
 
       return true;
@@ -336,95 +338,37 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
     );
   }
 
-  void _showBookmarkDialog() {
-    final isFav = widget.settings.favoriteFolders.any((f) => f.path == _currentPath);
-    final isStartup = widget.settings.defaultStartupPath == _currentPath;
-    final folderName = _currentPath.split('/').where((s) => s.isNotEmpty).lastOrNull ?? 'Folder';
-    final nameController = TextEditingController(text: folderName);
+  void _toggleFavoriteFolder(StorageItem folder) {
+    final existingIndex = widget.settings.locations.indexWhere((l) => l.path == folder.path);
+    final updatedLocations = List<SavedLocation>.from(widget.settings.locations);
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.folder_special_rounded, color: AppColors.accentAmber, size: 22),
-            const SizedBox(width: 8),
-            const Text('Folder Bookmark', style: TextStyle(fontSize: 16)),
-          ],
+    if (existingIndex != -1) {
+      updatedLocations.removeAt(existingIndex);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Removed "${folder.name}" from favorites'),
+          duration: const Duration(seconds: 2),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _currentPath,
-              style: TextStyle(fontSize: 11.5, color: Theme.of(ctx).hintColor, fontFamily: 'monospace'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Bookmark Label',
-                isDense: true,
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(
-                isStartup ? Icons.star_rounded : Icons.star_outline_rounded,
-                color: isStartup ? AppColors.accentAmber : Theme.of(ctx).hintColor,
-              ),
-              title: const Text('Default Startup Folder', style: TextStyle(fontSize: 13)),
-              subtitle: Text(
-                isStartup ? 'Opens automatically on launch' : 'Tap button below to set',
-                style: const TextStyle(fontSize: 11),
-              ),
-              trailing: isStartup
-                  ? const Icon(Icons.check, color: AppColors.accentGreen, size: 18)
-                  : FilledButton.tonal(
-                      onPressed: () {
-                        final updated = widget.settings.copyWith(defaultStartupPath: _currentPath);
-                        widget.onSettingsChanged(updated);
-                        SettingsService.saveSettings(updated);
-                        Navigator.of(ctx).pop();
-                      },
-                      style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
-                      child: const Text('Set as Startup', style: TextStyle(fontSize: 11)),
-                    ),
-            ),
-          ],
+      );
+    } else {
+      updatedLocations.add(SavedLocation(
+        id: 'fav_${folder.path}',
+        name: folder.name,
+        path: folder.path,
+        type: 'favorite',
+      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Saved "${folder.name}" to top-left menu favorites'),
+          duration: const Duration(seconds: 2),
         ),
-        actions: [
-          if (isFav)
-            TextButton(
-              onPressed: () {
-                final updatedFavs = widget.settings.favoriteFolders.where((f) => f.path != _currentPath).toList();
-                final updated = widget.settings.copyWith(favoriteFolders: updatedFavs);
-                widget.onSettingsChanged(updated);
-                SettingsService.saveSettings(updated);
-                Navigator.of(ctx).pop();
-              },
-              child: const Text('Remove Bookmark', style: TextStyle(color: AppColors.accentRose)),
-            ),
-          FilledButton(
-            onPressed: () {
-              final label = nameController.text.trim().isEmpty ? folderName : nameController.text.trim();
-              final updatedFavs = List<FavoriteFolder>.from(widget.settings.favoriteFolders);
-              if (!isFav) {
-                updatedFavs.add(FavoriteFolder(name: label, path: _currentPath));
-              }
-              final updated = widget.settings.copyWith(favoriteFolders: updatedFavs);
-              widget.onSettingsChanged(updated);
-              SettingsService.saveSettings(updated);
-              Navigator.of(ctx).pop();
-            },
-            child: Text(isFav ? 'Save' : 'Add to Favorites'),
-          ),
-        ],
-      ),
-    );
+      );
+    }
+
+    final updatedSettings = widget.settings.copyWith(locations: updatedLocations);
+    widget.onSettingsChanged(updatedSettings);
+    SettingsService.saveSettings(updatedSettings);
+    setState(() {});
   }
 
   @override
@@ -439,8 +383,12 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
         _currentPath != '/' &&
         (widget.rootPaths.isEmpty || !widget.rootPaths.contains(_currentPath));
 
-    final isFav = widget.settings.favoriteFolders.any((f) => f.path == _currentPath);
-    final isStartup = widget.settings.defaultStartupPath == _currentPath;
+    // Determine if single selected item is a folder and whether it's already favorited
+    final singleSelectedItem = _selectedPaths.length == 1
+        ? _items.where((i) => _selectedPaths.contains(i.path)).firstOrNull
+        : null;
+    final canFavorite = singleSelectedItem != null && singleSelectedItem.isDirectory;
+    final isFavorite = canFavorite && widget.settings.locations.any((l) => l.path == singleSelectedItem.path);
 
     return Column(
       children: [
@@ -449,9 +397,6 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
           BreadcrumbBar(
             currentPath: _currentPath,
             canNavigateUp: canNavigateUp,
-            isFavorite: isFav,
-            isStartup: isStartup,
-            onBookmarkPressed: _showBookmarkDialog,
             onNavigateUp: () {
               final parent = _currentPath.substring(0, _currentPath.lastIndexOf('/'));
               setState(() {
@@ -477,7 +422,7 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Including subfolders: Showing all files in scope',
+                    'Including subfolders: Showing all nested files in scope',
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w500,
@@ -517,18 +462,18 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
                             'No matching files found',
                             style: TextStyle(color: theme.hintColor, fontSize: 13),
                           ),
-                          if (widget.settings.hasActiveTypeFilters || widget.settings.showDuplicatesOnly) ...[
+                          if (widget.settings.hasActiveFilters) ...[
                             const SizedBox(height: 6),
                             TextButton.icon(
                               icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
-                              label: const Text('Reset Active Filters'),
+                              label: const Text('Reset Visibility Filters'),
                               onPressed: () {
                                 final updated = widget.settings.copyWith(
-                                  filterImages: false,
-                                  filterVideos: false,
-                                  filterAudio: false,
-                                  filterDocuments: false,
-                                  filterArchives: false,
+                                  showImages: true,
+                                  showVideos: true,
+                                  showAudio: true,
+                                  showDocuments: true,
+                                  showArchives: true,
                                   showDuplicatesOnly: false,
                                   customFilterText: '',
                                 );
@@ -586,11 +531,14 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
                     ),
         ),
 
-        // Batch Delete Action Bar during Selection Mode
+        // Batch Action Bar during Selection Mode
         if (widget.isSelectionMode)
           BatchDeleteBar(
             selectedCount: _selectedPaths.length,
             selectedTotalBytes: totalSelectedBytes,
+            canFavorite: canFavorite,
+            isFavorite: isFavorite,
+            onToggleFavorite: canFavorite ? () => _toggleFavoriteFolder(singleSelectedItem) : null,
             onSelectAll: _selectAll,
             onDeselectAll: _deselectAll,
             onDeletePressed: _confirmBatchDelete,

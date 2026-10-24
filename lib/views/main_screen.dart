@@ -1,43 +1,17 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
+import '../models/saved_location.dart';
 import '../models/storage_volume.dart';
 import '../models/user_settings.dart';
 import '../services/platform_bridge_service.dart';
 import '../services/settings_service.dart';
 import 'app_diet_view.dart';
 import 'disk_browser_view.dart';
+import 'widgets/location_reorder_sheet.dart';
 import 'widgets/unified_menu_sheet.dart';
 
-/// A location item presented in the top bar scan sources dropdown.
-class LocationItem {
-  final String id;
-  final String label;
-  final IconData icon;
-  final String path;
-  final bool isAppsDiet;
-  final bool isVolume;
-  final bool isFavorite;
-
-  const LocationItem({
-    required this.id,
-    required this.label,
-    required this.icon,
-    this.path = '',
-    this.isAppsDiet = false,
-    this.isVolume = false,
-    this.isFavorite = false,
-  });
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is LocationItem && runtimeType == other.runtimeType && id == other.id;
-
-  @override
-  int get hashCode => id.hashCode;
-}
-
-/// Main application screen with scan location selector, unified filter menu, and content views.
+/// Main application screen with interactive location switcher, unified filter menu, and content views.
 class MainScreen extends StatefulWidget {
   final UserSettings settings;
   final ValueChanged<UserSettings> onSettingsChanged;
@@ -53,7 +27,7 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  String _selectedLocationId = 'internal';
+  String? _selectedLocationId;
   List<StorageVolume> _volumes = [];
   bool _hasStoragePermission = true;
   bool _hasUsageStatsPermission = true;
@@ -67,6 +41,37 @@ class _MainScreenState extends State<MainScreen> {
     _checkPermissionsAndVolumes();
   }
 
+  bool _isLocationAvailable(SavedLocation loc) {
+    if (loc.isAppsDiet) return true;
+    if (loc.path.isEmpty) return false;
+    try {
+      return Directory(loc.path).existsSync();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  List<SavedLocation> get _mergedLocations {
+    final list = List<SavedLocation>.from(widget.settings.locations);
+
+    // Merge any detected external volumes that aren't already in the list
+    for (final vol in _volumes) {
+      if (!vol.isPrimary) {
+        final existingIndex = list.indexWhere((l) => l.path == vol.path);
+        if (existingIndex == -1) {
+          list.add(SavedLocation(
+            id: 'sd_${vol.path}',
+            name: vol.description.isNotEmpty ? vol.description : 'External (${vol.path.split('/').last})',
+            path: vol.path,
+            type: 'external',
+          ));
+        }
+      }
+    }
+
+    return list;
+  }
+
   Future<void> _checkPermissionsAndVolumes() async {
     final permissions = await PlatformBridgeService.checkPermissions();
     final volumes = await PlatformBridgeService.getStorageVolumes();
@@ -77,99 +82,64 @@ class _MainScreenState extends State<MainScreen> {
         _hasUsageStatsPermission = permissions['hasUsageStatsPermission'] ?? true;
         _volumes = volumes;
 
-        // If a default startup folder is configured, find matching location
-        final startup = widget.settings.defaultStartupPath;
-        if (startup.isNotEmpty && startup != '/storage/emulated/0') {
-          final favMatch = widget.settings.favoriteFolders.where((f) => f.path == startup).firstOrNull;
-          if (favMatch != null) {
-            _selectedLocationId = 'fav_${favMatch.path}';
-          }
+        if (_selectedLocationId == null) {
+          // On initial launch: select the top-most available entry in locations!
+          // If the top item is not available (e.g. unplugged SD/OTG), fall back to the next available item.
+          final locs = _mergedLocations;
+          final availableFirst = locs.where((l) => _isLocationAvailable(l)).firstOrNull ?? locs.firstOrNull;
+          _selectedLocationId = availableFirst?.id ?? 'internal';
         }
       });
     }
   }
 
-  List<LocationItem> _buildAvailableLocations() {
-    final primaryVolume = _volumes.where((v) => v.isPrimary).firstOrNull ?? _volumes.firstOrNull;
-    final externalVolumes = _volumes.where((v) => !v.isPrimary).toList();
-
-    final list = <LocationItem>[
-      // 1. Storage Volumes
-      LocationItem(
-        id: 'internal',
-        label: 'Internal Storage',
-        icon: Icons.phone_android_rounded,
-        path: primaryVolume?.path ?? '/storage/emulated/0',
-        isVolume: true,
-      ),
-    ];
-
-    for (final ext in externalVolumes) {
-      list.add(LocationItem(
-        id: 'sd_${ext.path}',
-        label: ext.description.isNotEmpty ? ext.description : 'External (${ext.path.split('/').last})',
-        icon: Icons.sd_card_rounded,
-        path: ext.path,
-        isVolume: true,
-      ));
-    }
-
-    if (externalVolumes.isNotEmpty) {
-      list.add(const LocationItem(
-        id: 'all_storages',
-        label: 'All Storages (Merged)',
-        icon: Icons.storage_rounded,
-        path: '',
-        isVolume: true,
-      ));
-    }
-
-    // 2. Favorite Folders & Quick Access
-    for (final fav in widget.settings.favoriteFolders) {
-      final isStartup = widget.settings.defaultStartupPath == fav.path;
-      final IconData favIcon;
-      final nameLower = fav.name.toLowerCase();
-      if (nameLower.contains('download')) {
-        favIcon = Icons.download_rounded;
-      } else if (nameLower.contains('document')) {
-        favIcon = Icons.description_rounded;
-      } else if (nameLower.contains('dcim') || nameLower.contains('camera')) {
-        favIcon = Icons.photo_camera_rounded;
-      } else {
-        favIcon = Icons.folder_special_rounded;
-      }
-
-      list.add(LocationItem(
-        id: 'fav_${fav.path}',
-        label: '${fav.name}${isStartup ? " ★" : ""}',
-        icon: favIcon,
-        path: fav.path,
-        isFavorite: true,
-      ));
-    }
-
-    // 3. Apps & Cache Diet View
-    list.add(const LocationItem(
-      id: 'apps_diet',
-      label: 'Apps & Cache Diet',
-      icon: Icons.apps_rounded,
-      isAppsDiet: true,
-    ));
-
-    return list;
+  SavedLocation get _currentLocation {
+    final locs = _mergedLocations;
+    return locs.where((l) => l.id == _selectedLocationId).firstOrNull ?? locs.first;
   }
 
   List<String> get _activeRootPaths {
-    final locations = _buildAvailableLocations();
-    final current = locations.where((l) => l.id == _selectedLocationId).firstOrNull ?? locations.first;
-
-    if (current.id == 'all_storages') {
-      return _volumes.map((v) => v.path).toList();
-    }
-    if (current.path.isNotEmpty) {
-      return [current.path];
+    final loc = _currentLocation;
+    if (loc.path.isNotEmpty) {
+      return [loc.path];
     }
     return ['/storage/emulated/0'];
+  }
+
+  void _openLocationSelector() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => LocationReorderSheet(
+        locations: _mergedLocations,
+        selectedLocationId: _selectedLocationId ?? 'internal',
+        onSelectLocation: (loc) {
+          Navigator.of(context).pop();
+          setState(() {
+            _selectedLocationId = loc.id;
+            _isSelectionMode = false;
+          });
+        },
+        onReorder: (updatedList) {
+          final updatedSettings = widget.settings.copyWith(locations: updatedList);
+          widget.onSettingsChanged(updatedSettings);
+          SettingsService.saveSettings(updatedSettings);
+          setState(() {});
+        },
+        onRemoveLocation: (loc) {
+          final updatedList = widget.settings.locations.where((l) => l.id != loc.id).toList();
+          final updatedSettings = widget.settings.copyWith(locations: updatedList);
+          widget.onSettingsChanged(updatedSettings);
+          SettingsService.saveSettings(updatedSettings);
+          setState(() {
+            if (_selectedLocationId == loc.id) {
+              _selectedLocationId = updatedList.firstOrNull?.id ?? 'internal';
+            }
+          });
+        },
+      ),
+    );
   }
 
   void _openUnifiedMenu() {
@@ -188,23 +158,56 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  IconData _iconForLocation(SavedLocation loc) {
+    if (loc.isAppsDiet) return Icons.apps_rounded;
+    if (loc.isInternal) return Icons.phone_android_rounded;
+    if (loc.isExternal) return Icons.sd_card_rounded;
+
+    final nameLower = loc.name.toLowerCase();
+    if (nameLower.contains('download')) return Icons.download_rounded;
+    if (nameLower.contains('document')) return Icons.description_rounded;
+    if (nameLower.contains('dcim') || nameLower.contains('camera')) return Icons.photo_camera_rounded;
+    return Icons.folder_special_rounded;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final locations = _buildAvailableLocations();
-
-    final currentLoc = locations.where((l) => l.id == _selectedLocationId).firstOrNull ?? locations.first;
+    final currentLoc = _currentLocation;
     final isAppsDiet = currentLoc.isAppsDiet;
-
-    final hasActiveFilters = widget.settings.hasActiveTypeFilters ||
-        widget.settings.showDuplicatesOnly ||
-        widget.settings.customFilterText.trim().isNotEmpty ||
-        widget.settings.includeSubfolders;
+    final hasActiveFilters = widget.settings.hasActiveFilters;
 
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 12,
-        title: _buildLocationDropdown(locations, currentLoc),
+        title: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: _openLocationSelector,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _iconForLocation(currentLoc),
+                  size: 20,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 180),
+                  child: Text(
+                    currentLoc.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Icon(Icons.arrow_drop_down_rounded, size: 22, color: theme.hintColor),
+              ],
+            ),
+          ),
+        ),
         actions: [
           if (!isAppsDiet) ...[
             // Select for Deletion Mode (Edit mode toggle)
@@ -297,72 +300,6 @@ class _MainScreenState extends State<MainScreen> {
                   ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildLocationDropdown(List<LocationItem> locations, LocationItem currentLoc) {
-    final theme = Theme.of(context);
-
-    return DropdownButtonHideUnderline(
-      child: DropdownButton<String>(
-        value: currentLoc.id,
-        isDense: true,
-        borderRadius: BorderRadius.circular(8),
-        selectedItemBuilder: (context) {
-          return locations.map((loc) {
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(loc.icon, size: 19, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 190),
-                  child: Text(
-                    loc.label,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            );
-          }).toList();
-        },
-        items: locations.map((loc) {
-          return DropdownMenuItem<String>(
-            value: loc.id,
-            child: Row(
-              children: [
-                Icon(
-                  loc.icon,
-                  size: 18,
-                  color: loc.isFavorite
-                      ? AppColors.accentAmber
-                      : (loc.isAppsDiet ? theme.colorScheme.secondary : null),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    loc.label,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: loc.id == currentLoc.id ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-        onChanged: (newId) {
-          if (newId != null && newId != _selectedLocationId) {
-            setState(() {
-              _selectedLocationId = newId;
-              _isSelectionMode = false;
-            });
-          }
-        },
       ),
     );
   }

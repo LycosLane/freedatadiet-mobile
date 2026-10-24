@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'duplicate_rule.dart';
-import 'favorite_folder.dart';
+import 'saved_location.dart';
 
 enum BarScalingMode {
   largestItem('Largest Item in View', 'Bars scale relative to the largest item visible.'),
@@ -25,9 +25,6 @@ enum SortColumn {
 class UserSettings {
   final ThemeMode themeMode;
   final BarScalingMode barScalingMode;
-  final bool showHiddenFiles;
-  final bool includeSubfolders;
-  final DuplicateMatchCriteria duplicateCriteria;
   final SortColumn sortColumn;
   final bool sortDescending;
   final List<String> excludedPatterns;
@@ -35,86 +32,100 @@ class UserSettings {
   // Zoom / Font Scale
   final double textScale; // e.g. 0.8 to 1.6
 
-  // Unified Filter Options
+  // Search & Extension Filter
   final String customFilterText;
-  final bool filterImages;
-  final bool filterVideos;
-  final bool filterAudio;
-  final bool filterDocuments;
-  final bool filterArchives;
-  final bool showDuplicatesOnly;
 
-  // Folder Bookmarks & Startup Path
-  final List<FavoriteFolder> favoriteFolders;
-  final String defaultStartupPath;
+  // "What's Shown" - Opt-out visibility toggles (all true by default)
+  final bool showImages;
+  final bool showVideos;
+  final bool showAudio;
+  final bool showDocuments;
+  final bool showArchives;
+  final bool includeSubfolders;
+  final bool showHiddenFiles;
+
+  // Independent Duplicate Filtering
+  final bool showDuplicatesOnly;
+  final DuplicateMatchCriteria duplicateCriteria;
+
+  // Reorderable Locations & Favorites (Item at index 0 is default startup location)
+  final List<SavedLocation> locations;
 
   const UserSettings({
     this.themeMode = ThemeMode.dark,
     this.barScalingMode = BarScalingMode.largestItem,
-    this.showHiddenFiles = false,
-    this.includeSubfolders = false,
-    this.duplicateCriteria = const DuplicateMatchCriteria(),
     this.sortColumn = SortColumn.size,
     this.sortDescending = true,
     this.excludedPatterns = const ['.git', '.thumbnails', '.cache', 'Android/data'],
     this.textScale = 1.0,
     this.customFilterText = '',
-    this.filterImages = false,
-    this.filterVideos = false,
-    this.filterAudio = false,
-    this.filterDocuments = false,
-    this.filterArchives = false,
+    this.showImages = true,
+    this.showVideos = true,
+    this.showAudio = true,
+    this.showDocuments = true,
+    this.showArchives = true,
+    this.includeSubfolders = false,
+    this.showHiddenFiles = false,
     this.showDuplicatesOnly = false,
-    this.favoriteFolders = const [
-      FavoriteFolder(name: 'Downloads', path: '/storage/emulated/0/Download'),
-      FavoriteFolder(name: 'Documents', path: '/storage/emulated/0/Documents'),
-      FavoriteFolder(name: 'Camera (DCIM)', path: '/storage/emulated/0/DCIM'),
+    this.duplicateCriteria = const DuplicateMatchCriteria(),
+    this.locations = const [
+      SavedLocation(id: 'internal', name: 'Internal Storage', path: '/storage/emulated/0', type: 'internal'),
+      SavedLocation(id: 'fav_downloads', name: 'Downloads', path: '/storage/emulated/0/Download', type: 'favorite'),
+      SavedLocation(id: 'fav_documents', name: 'Documents', path: '/storage/emulated/0/Documents', type: 'favorite'),
+      SavedLocation(id: 'fav_dcim', name: 'Camera (DCIM)', path: '/storage/emulated/0/DCIM', type: 'favorite'),
+      SavedLocation(id: 'apps_diet', name: 'Apps & Cache Diet', path: '', type: 'apps_diet'),
     ],
-    this.defaultStartupPath = '/storage/emulated/0',
   });
 
-  bool get hasActiveTypeFilters =>
-      filterImages || filterVideos || filterAudio || filterDocuments || filterArchives;
+  /// True if any non-default visibility filter or search is active.
+  bool get hasActiveFilters =>
+      !showImages ||
+      !showVideos ||
+      !showAudio ||
+      !showDocuments ||
+      !showArchives ||
+      includeSubfolders ||
+      showHiddenFiles ||
+      showDuplicatesOnly ||
+      customFilterText.trim().isNotEmpty;
 
   UserSettings copyWith({
     ThemeMode? themeMode,
     BarScalingMode? barScalingMode,
-    bool? showHiddenFiles,
-    bool? includeSubfolders,
-    DuplicateMatchCriteria? duplicateCriteria,
     SortColumn? sortColumn,
     bool? sortDescending,
     List<String>? excludedPatterns,
     double? textScale,
     String? customFilterText,
-    bool? filterImages,
-    bool? filterVideos,
-    bool? filterAudio,
-    bool? filterDocuments,
-    bool? filterArchives,
+    bool? showImages,
+    bool? showVideos,
+    bool? showAudio,
+    bool? showDocuments,
+    bool? showArchives,
+    bool? includeSubfolders,
+    bool? showHiddenFiles,
     bool? showDuplicatesOnly,
-    List<FavoriteFolder>? favoriteFolders,
-    String? defaultStartupPath,
+    DuplicateMatchCriteria? duplicateCriteria,
+    List<SavedLocation>? locations,
   }) {
     return UserSettings(
       themeMode: themeMode ?? this.themeMode,
       barScalingMode: barScalingMode ?? this.barScalingMode,
-      showHiddenFiles: showHiddenFiles ?? this.showHiddenFiles,
-      includeSubfolders: includeSubfolders ?? this.includeSubfolders,
-      duplicateCriteria: duplicateCriteria ?? this.duplicateCriteria,
       sortColumn: sortColumn ?? this.sortColumn,
       sortDescending: sortDescending ?? this.sortDescending,
       excludedPatterns: excludedPatterns ?? this.excludedPatterns,
       textScale: textScale ?? this.textScale,
       customFilterText: customFilterText ?? this.customFilterText,
-      filterImages: filterImages ?? this.filterImages,
-      filterVideos: filterVideos ?? this.filterVideos,
-      filterAudio: filterAudio ?? this.filterAudio,
-      filterDocuments: filterDocuments ?? this.filterDocuments,
-      filterArchives: filterArchives ?? this.filterArchives,
+      showImages: showImages ?? this.showImages,
+      showVideos: showVideos ?? this.showVideos,
+      showAudio: showAudio ?? this.showAudio,
+      showDocuments: showDocuments ?? this.showDocuments,
+      showArchives: showArchives ?? this.showArchives,
+      includeSubfolders: includeSubfolders ?? this.includeSubfolders,
+      showHiddenFiles: showHiddenFiles ?? this.showHiddenFiles,
       showDuplicatesOnly: showDuplicatesOnly ?? this.showDuplicatesOnly,
-      favoriteFolders: favoriteFolders ?? this.favoriteFolders,
-      defaultStartupPath: defaultStartupPath ?? this.defaultStartupPath,
+      duplicateCriteria: duplicateCriteria ?? this.duplicateCriteria,
+      locations: locations ?? this.locations,
     );
   }
 }

@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/user_settings.dart';
 
-/// Single unified, clean bottom sheet containing all search filters, type filters,
-/// duplicate criteria, zoom scaling, favorites, and settings with consistent accent styling.
+/// Single unified bottom sheet containing:
+/// 1. Custom Text / Extension search
+/// 2. "What's Shown" opt-out visibility switches (Images, Videos, Audio, Documents, Archives, Subfolders, Hidden)
+/// 3. Independent Duplicate Detection ("Only show duplicates" + criteria switches)
+/// 4. Text & UI Zoom scaling
+/// 5. Appearance & Bar Scaling
 class UnifiedMenuSheet extends StatefulWidget {
   final UserSettings settings;
   final ValueChanged<UserSettings> onSettingsChanged;
@@ -128,60 +132,49 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
                 ),
                 const SizedBox(height: 18),
 
-                // 2. File Type Toggles (Uniform Switch Style)
-                _buildSectionHeader('Filter by File Type', Icons.category_rounded, accent),
+                // 2. "What's Shown" (Opt-out Visibility Controls - All active by default)
+                _buildSectionHeader("What's Shown", Icons.visibility_rounded, accent),
                 _buildUniformSwitch(
                   title: 'Images',
-                  subtitle: '.jpg, .png, .webp, .heic, .dng, .raw',
-                  value: _current.filterImages,
+                  subtitle: 'Show .jpg, .png, .webp, .heic, .dng, .raw',
+                  value: _current.showImages,
                   accent: accent,
-                  onChanged: (val) => _updateSettings(_current.copyWith(filterImages: val)),
+                  onChanged: (val) => _updateSettings(_current.copyWith(showImages: val)),
                 ),
                 _buildUniformSwitch(
                   title: 'Videos',
-                  subtitle: '.mp4, .mkv, .mov, .avi, .webm, .3gp',
-                  value: _current.filterVideos,
+                  subtitle: 'Show .mp4, .mkv, .mov, .avi, .webm, .3gp',
+                  value: _current.showVideos,
                   accent: accent,
-                  onChanged: (val) => _updateSettings(_current.copyWith(filterVideos: val)),
+                  onChanged: (val) => _updateSettings(_current.copyWith(showVideos: val)),
                 ),
                 _buildUniformSwitch(
                   title: 'Audio',
-                  subtitle: '.mp3, .flac, .wav, .m4a, .ogg, .opus',
-                  value: _current.filterAudio,
+                  subtitle: 'Show .mp3, .flac, .wav, .m4a, .ogg, .opus',
+                  value: _current.showAudio,
                   accent: accent,
-                  onChanged: (val) => _updateSettings(_current.copyWith(filterAudio: val)),
+                  onChanged: (val) => _updateSettings(_current.copyWith(showAudio: val)),
                 ),
                 _buildUniformSwitch(
                   title: 'Documents',
-                  subtitle: '.pdf, .doc, .docx, .txt, .epub, .xlsx',
-                  value: _current.filterDocuments,
+                  subtitle: 'Show .pdf, .doc, .docx, .txt, .epub, .xlsx',
+                  value: _current.showDocuments,
                   accent: accent,
-                  onChanged: (val) => _updateSettings(_current.copyWith(filterDocuments: val)),
+                  onChanged: (val) => _updateSettings(_current.copyWith(showDocuments: val)),
                 ),
                 _buildUniformSwitch(
                   title: 'Archives & APKs',
-                  subtitle: '.zip, .rar, .7z, .tar, .apk, .obb',
-                  value: _current.filterArchives,
+                  subtitle: 'Show .zip, .rar, .7z, .tar, .apk, .obb',
+                  value: _current.showArchives,
                   accent: accent,
-                  onChanged: (val) => _updateSettings(_current.copyWith(filterArchives: val)),
+                  onChanged: (val) => _updateSettings(_current.copyWith(showArchives: val)),
                 ),
-                const SizedBox(height: 18),
-
-                // 3. Scope & Visibility (Uniform Switch Style)
-                _buildSectionHeader('Scope & Visibility', Icons.visibility_rounded, accent),
                 _buildUniformSwitch(
                   title: 'Include subfolders',
-                  subtitle: 'Traverses through all subdirectories and shows files in current level',
+                  subtitle: 'Recursively traverses and displays all nested files',
                   value: _current.includeSubfolders,
                   accent: accent,
                   onChanged: (val) => _updateSettings(_current.copyWith(includeSubfolders: val)),
-                ),
-                _buildUniformSwitch(
-                  title: 'Show duplicates only',
-                  subtitle: 'Filters list to only display files matching duplicate criteria',
-                  value: _current.showDuplicatesOnly,
-                  accent: AppColors.accentAmber,
-                  onChanged: (val) => _updateSettings(_current.copyWith(showDuplicatesOnly: val)),
                 ),
                 _buildUniformSwitch(
                   title: 'Show hidden files',
@@ -192,11 +185,25 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
                 ),
                 const SizedBox(height: 18),
 
-                // 4. Duplicate Matching Criteria (Uniform Switch Style)
-                _buildSectionHeader('Duplicate Detection Rules', Icons.copy_all_rounded, accent),
+                // 3. Duplicate Detection (Separate, Independent Section)
+                _buildSectionHeader('Duplicate Detection', Icons.copy_all_rounded, accent),
+                _buildUniformSwitch(
+                  title: 'Only show duplicates',
+                  subtitle: 'Hides unique files and surfaces duplicate copies only',
+                  value: _current.showDuplicatesOnly,
+                  accent: AppColors.accentAmber,
+                  onChanged: (val) => _updateSettings(_current.copyWith(showDuplicatesOnly: val)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 8, top: 4, bottom: 4),
+                  child: Text(
+                    'Duplicate Matching Criteria:',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: theme.hintColor),
+                  ),
+                ),
                 _buildUniformSwitch(
                   title: 'Match same file size',
-                  subtitle: 'Considers byte size when identifying duplicates',
+                  subtitle: 'Matches byte size (catches identical renamed files)',
                   value: _current.duplicateCriteria.matchSize,
                   accent: accent,
                   onChanged: (val) {
@@ -218,7 +225,7 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
                 ),
                 _buildUniformSwitch(
                   title: 'Match same modification timestamp',
-                  subtitle: 'Matches exact timestamp (useful for camera syncs)',
+                  subtitle: 'Matches exact timestamp (useful for photo and backup syncs)',
                   value: _current.duplicateCriteria.matchTimestamp,
                   accent: accent,
                   onChanged: (val) {
@@ -229,7 +236,7 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
                 ),
                 const SizedBox(height: 18),
 
-                // 5. Text & UI Zoom Scaling
+                // 4. Text & UI Zoom Scaling
                 _buildSectionHeader('Text & UI Zoom', Icons.zoom_in_rounded, accent),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -290,71 +297,7 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
                 ),
                 const SizedBox(height: 18),
 
-                // 6. Favorites & Startup Folder
-                _buildSectionHeader('Favorite Folders & Startup', Icons.folder_special_rounded, accent),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: theme.dividerColor),
-                  ),
-                  child: Column(
-                    children: [
-                      ..._current.favoriteFolders.map((fav) {
-                        final isStartup = _current.defaultStartupPath == fav.path;
-                        return ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(
-                            isStartup ? Icons.star_rounded : Icons.star_border_rounded,
-                            color: isStartup ? AppColors.accentAmber : theme.hintColor,
-                            size: 22,
-                          ),
-                          title: Text(fav.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                          subtitle: Text(
-                            '${fav.path}${isStartup ? " (Default Startup)" : ""}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isStartup ? accent : theme.hintColor,
-                              fontFamily: 'monospace',
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  isStartup ? Icons.check_circle : Icons.radio_button_unchecked,
-                                  size: 18,
-                                  color: isStartup ? accent : theme.hintColor,
-                                ),
-                                tooltip: 'Set as Startup Folder',
-                                onPressed: () {
-                                  _updateSettings(_current.copyWith(defaultStartupPath: fav.path));
-                                },
-                              ),
-                              if (!const ['Downloads', 'Documents', 'Camera (DCIM)'].contains(fav.name))
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, size: 18),
-                                  tooltip: 'Remove Bookmark',
-                                  onPressed: () {
-                                    final updatedFavs = _current.favoriteFolders.where((f) => f.path != fav.path).toList();
-                                    _updateSettings(_current.copyWith(favoriteFolders: updatedFavs));
-                                  },
-                                ),
-                            ],
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // 7. Appearance & Theme
+                // 5. Appearance & Theme
                 _buildSectionHeader('Appearance & Bar Scaling', Icons.palette_rounded, accent),
                 const Text('Theme Mode', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 6),

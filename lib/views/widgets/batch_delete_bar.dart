@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/size_formatter.dart';
 
-/// Floating bottom action bar during Selection Mode.
+/// Floating bottom action bar during Selection Mode with batch deletion and folder favoriting.
 class BatchDeleteBar extends StatelessWidget {
   final int selectedCount;
   final int selectedTotalBytes;
+  final bool canFavorite;
+  final bool isFavorite;
+  final VoidCallback? onToggleFavorite;
   final VoidCallback onSelectAll;
   final VoidCallback onDeselectAll;
   final VoidCallback onDeletePressed;
@@ -15,6 +18,9 @@ class BatchDeleteBar extends StatelessWidget {
     super.key,
     required this.selectedCount,
     required this.selectedTotalBytes,
+    this.canFavorite = false,
+    this.isFavorite = false,
+    this.onToggleFavorite,
     required this.onSelectAll,
     required this.onDeselectAll,
     required this.onDeletePressed,
@@ -57,7 +63,7 @@ class BatchDeleteBar extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '$selectedCount items selected',
+                    '$selectedCount selected',
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                   Text(
@@ -72,11 +78,24 @@ class BatchDeleteBar extends StatelessWidget {
                 ],
               ),
             ),
+            // Star button appears when exactly 1 folder is selected
+            if (canFavorite) ...[
+              IconButton(
+                icon: Icon(
+                  isFavorite ? Icons.star_rounded : Icons.star_border_rounded,
+                  color: isFavorite ? AppColors.accentAmber : theme.hintColor,
+                  size: 24,
+                ),
+                tooltip: isFavorite ? 'Remove from favorites' : 'Mark as favorite',
+                onPressed: onToggleFavorite,
+              ),
+              const SizedBox(width: 4),
+            ],
             TextButton(
               onPressed: selectedCount == 0 ? onSelectAll : onDeselectAll,
               child: Text(selectedCount == 0 ? 'Select All' : 'Clear'),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             FilledButton.icon(
               onPressed: hasSelection ? onDeletePressed : null,
               icon: const Icon(Icons.delete_forever_rounded, size: 18),
