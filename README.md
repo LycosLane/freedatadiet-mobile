@@ -10,20 +10,37 @@ FreeDataDiet shows what is taking up space on your phone.
 
 Find large files, clear app cache, delete duplicates.
 
-No ads. No subscriptions. No fake cleaner tools.
+No ads, no subscriptions, no popups.
 
 ---
 
-## What It Does
+## Disk Explorer
 
 <p align="center">
-  <img src="docs/screenshots/overview.png" width="340" alt="FreeDataDiet Mobile Screenshot">
+  <img src="docs/screenshots/freedatadietmobile-folders-dark.png" width="300" alt="FreeDataDiet Disk Explorer">
 </p>
 
-* **Disk Explorer:** See which folders and files use the most space.
-* **App Diet:** See how much space each app uses for its cache. Clear it with one tap in Android settings.
-* **Duplicate Finder:** Spot identical files across folders.
-* **Custom Filters:** Turn off images to see only videos, or filter by file extension.
+See which folders and files use the most space. Tap column headers to sort by name, date, or size. Pinch to zoom in and out.
+
+---
+
+## App Diet
+
+<p align="center">
+  <img src="docs/screenshots/freedatadietmobile-apps-dark.png" width="300" alt="FreeDataDiet App Diet">
+</p>
+
+See how much space apps use for their cache. Tap any app to open Android settings and clear its cache with one tap.
+
+---
+
+## Filters and Duplicates
+
+<p align="center">
+  <img src="docs/screenshots/freedatadietmobile-settings-dark.png" width="300" alt="FreeDataDiet Filters and Preferences">
+</p>
+
+Filter what you see. Turn off images to focus on videos, search by file extension like `.pdf` or `.zip`, and find duplicate files.
 
 ---
 
@@ -31,7 +48,7 @@ No ads. No subscriptions. No fake cleaner tools.
 
 * **No internet access:** The app does not ask for internet permission. It cannot send your files or data anywhere.
 * **No tracking:** There are no analytics, no advertising SDKs, and no accounts.
-* **No ads:** Completely ad-free with zero popups or subscriptions.
+* **No ads:** No ads, no subscriptions, no popups.
 * **No fake tools:** No placebo RAM cleaners or fake CPU coolers. You see real files and decide what to delete.
 * **Open source:** Free software licensed under the MIT license.
 
