@@ -6,88 +6,90 @@
 [![Zero Telemetry](https://img.shields.io/badge/Telemetry-Zero-brightgreen.svg)]()
 [![No Ads](https://img.shields.io/badge/Ads-None-success.svg)]()
 
-> **Put your mobile storage on a diet.**  
-> The official Android companion to [FreeDataDiet (Desktop)](https://github.com/LycosLane/freedatadiet).  
-> A fast, lightweight, and 100% private disk usage and app-cache analyzer.
+> **Is your phone running out of space? Put your storage on a diet.**  
+> Find what is actually taking up your storage, clear bloated app caches, and safely delete duplicate photos and videos.  
+> **100% private. No ads. No subscriptions. No fake "RAM cleaner" scams.**
+
+The official Android companion to [FreeDataDiet (Desktop)](https://github.com/LycosLane/freedatadiet).
 
 ---
-
-## Highlights & Features
-
-* **Interactive Disk Explorer:** Browse internal storage and removable media (SD card, USB-OTG) with proportional usage bars. Sort instantly by size, file name, or modification date.
-* **Pinch-to-Zoom & Multiline Wrapping:** Scale text and UI elements smoothly. Long file names wrap naturally so nothing is cut off, even at high zoom levels.
-* **Continuous Drag-to-Select:** Select multiple files or folders effortlessly. Simply long-press or start from a checkbox and drag down or up, with automatic edge scrolling.
-* **In-App Media Preview:** Fast 24x24 micro-thumbnails in the file list, plus a built-in full-screen swipeable image viewer with pinch-to-zoom using native Android codecs (zero third-party decoder bloat).
-* **Subfolder Diff-Grouping:** When scanning subfolders, identically named or matching files are grouped into clean cards. Common values are shown once in the header, while distinct paths and occurrence checkboxes are displayed below with a convenient *"Keep 1st"* preset.
-* **Two-Pass Bit-Exact Duplicate Detection:** Rapid candidate pre-filtering by size/name, followed by background isolate SHA-256 hash verification for bit-exact accuracy.
-* **Smart Duplicate Cleaning Assistant:** Suggests cleaning sibling duplicate files residing in the same folders to save time, always requiring explicit confirmation before deletion.
-* **App & Cache Diet:** Discover which apps consume the most cache and data storage. Jump directly into Android's native app settings to clear cache with a single tap.
-* **Hardened Safety & Traverse Protection:** Absolute delete protection for all `/Android` subdirectories (`data`, `obb`, `media`), system volumes, and SD card roots, hardened against path traversal attacks (`..`).
-* **120 FPS Resilient IO:** Directory listings, recursive size calculation, and hash computation run in dedicated background worker isolates (`Isolate.run`), keeping the UI silky-smooth even on slow SD cards or degraded USB drives.
-* **Fail-Safe Crash Recovery:** Safe defaults fallback on unreadable/interrupted settings, plus a one-click *"Reset All Settings to Factory Defaults"* button in the preferences sheet.
-
----
-
-## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/freedatadietmobile-folders-dark.png" width="280" alt="FreeDataDiet Disk Explorer">
+  <img src="docs/screenshots/freedatadietmobile-folders-dark.png" width="270" alt="FreeDataDiet Disk Explorer">
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="docs/screenshots/freedatadietmobile-apps-dark.png" width="280" alt="FreeDataDiet App Diet">
+  <img src="docs/screenshots/freedatadietmobile-apps-dark.png" width="270" alt="FreeDataDiet App Diet">
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="docs/screenshots/freedatadietmobile-settings-dark.png" width="280" alt="FreeDataDiet Filters and Preferences">
+  <img src="docs/screenshots/freedatadietmobile-settings-dark.png" width="270" alt="FreeDataDiet Filters and Preferences">
 </p>
 
 ---
 
-## Privacy & Security by Design
+## What FreeDataDiet Does For You
 
-* **Zero Internet Access:** The app does not request or include `android.permission.INTERNET`. Your files, device information, and scan data cannot leave your phone.
-* **Zero Telemetry & Tracking:** No analytics SDKs, no crash reporters phoning home, no advertising networks, and no user accounts.
-* **No Placebo Tools:** No fake "RAM boosters" or fraudulent "CPU coolers". You inspect real files, real storage, and make informed decisions yourself.
-* **Open Source:** Transparent code published under the permissive MIT license.
-* **Written Privacy Policy:** Review our straightforward [Privacy Policy](PRIVACY.md).
+Most "cleaner" apps on Android are loaded with intrusive ads, pushy subscriptions, and fake animations claiming to "boost your CPU".  
+**FreeDataDiet is completely different**: it's an honest, transparent tool that puts you back in full control of your phone's storage.
+
+### 🔍 1. See what is actually eating your storage
+* **Visual size bars:** Big, clear bars immediately show you which folders are taking up gigabytes—no guessing or digging through endless menus.
+* **Sort your way:** Tap column headers to sort instantly by largest files, newest or oldest downloads, or file names.
+* **Nothing cut off:** Pinch to zoom in on smaller screens. File names wrap onto multiple lines so you always read the full name, not `my_vacation_video_202...`.
+
+### ⚡ 2. Clear gigabytes of hidden app cache in seconds
+* Apps like Instagram, TikTok, YouTube, Spotify, and Chrome quietly accumulate gigabytes of cached media that clog up your phone.
+* The **App Diet** tab lists all your apps sorted from the biggest cache hog to the smallest.
+* Tap any app to jump directly into Android's native system settings and wipe its cache with one tap.
+
+### 👯 3. Find and remove duplicate photos and files
+* Stop wasting space on identical pictures saved across WhatsApp, Downloads, and your Camera roll.
+* **Preview before deleting:** Tap any picture to swipe through your files in full-screen with pinch-to-zoom, so you always know exactly what you are removing.
+* **Side-by-side comparison:** Duplicates from subfolders are grouped together with their locations clearly shown. Use **"Keep 1st"** to safely select all redundant copies in one tap.
+* **Smart Cleaning Assistant:** Deleting a duplicate from an old backup folder? The app automatically asks if you'd like to clean up other copies from the same folder.
+
+### 👆 4. Select dozens of files with one finger
+* No need to tap checkboxes one by one. Simply touch and drag your finger down the screen to select dozens of files or folders at once—just like in Google Photos.
+
+### 🛡️ 5. Safe & foolproof
+* **You can't break your phone:** Vital Android system folders and internal app data are locked and protected against deletion.
+* **Zero surprises:** You see every file that will be deleted and confirm it yourself. No background deletions, ever.
 
 ---
 
-## Required Permissions
+## Why You Can Trust It: 100% Private & Transparent
 
-To inspect storage and app caches on modern Android systems, FreeDataDiet Mobile requires:
+* 🚫 **No Internet Permission:** The app does not even ask for `android.permission.INTERNET`. It is physically **impossible** for your personal photos, files, or device info to leave your phone.
+* 🚫 **No Ads, No Subscriptions:** No banners, no unskippable video ads, no paywalls.
+* 🚫 **Zero Tracking:** No analytics SDKs, no crash reporters phoning home, no user accounts.
+* 🚫 **No Placebo Scams:** No fake "RAM boosters" or fraudulent "battery coolers". Only real files and honest tools.
+* 📖 **Open Source:** 100% open-source software licensed under the MIT license. Read our [Privacy Policy](PRIVACY.md).
 
-* **All Files Access (`MANAGE_EXTERNAL_STORAGE`):** Required on Android 11+ to crawl directory trees, calculate true folder sizes, and delete selected files.
-* **Usage Stats Access (`PACKAGE_USAGE_STATS`):** Used strictly to query installed app cache and storage sizes via Android's `StorageStatsManager`.
-* **Query All Packages (`QUERY_ALL_PACKAGES`):** Needed on Android 11+ to list installed applications in the App Diet overview.
+---
+
+## Permissions Explained
+
+To inspect storage and show app caches accurately, Android requires:
+
+* **All Files Access (`MANAGE_EXTERNAL_STORAGE`):** Required on Android 11+ to calculate true folder sizes and allow you to delete unwanted files.
+* **Usage Stats Access (`PACKAGE_USAGE_STATS`):** Used strictly to query installed app cache sizes from Android's system `StorageStatsManager`.
+* **Query All Packages (`QUERY_ALL_PACKAGES`):** Needed on Android 11+ to display your installed apps in the App Diet tab.
 
 ---
 
 ## Build from Source
-
-### Prerequisites
-* Flutter SDK (3.24+ recommended)
-* Android SDK (API 34/35)
-* Java 17
-
-### Build Steps
 
 ```bash
 # Clone the repository
 git clone https://github.com/LycosLane/freedatadiet-mobile.git
 cd freedatadiet-mobile
 
-# Fetch Flutter dependencies
+# Get dependencies
 flutter pub get
 
-# Run the test suite (58+ automated tests)
+# Run automated tests
 flutter test
 
-# Run code analysis
-flutter analyze
-
-# Build debug or release APK
-flutter build apk --release
+# Run app on a connected device
+flutter run
 ```
-
-The compiled APK will be located at `build/app/outputs/flutter-apk/app-release.apk`.
 
 ---
 
@@ -99,5 +101,4 @@ The compiled APK will be located at `build/app/outputs/flutter-apk/app-release.a
 
 ## License
 
-This project is open-source software licensed under the [MIT License](LICENSE).  
-Authored and maintained by [LycosLane](https://github.com/LycosLane).
+MIT License. Created and maintained by [LycosLane](https://github.com/LycosLane).
