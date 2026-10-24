@@ -34,5 +34,18 @@ void main() {
 
   test('app data is not backed up', () {
     expect(manifest.contains('android:allowBackup="false"'), true);
+    expect(
+      manifest.contains(
+        'android:dataExtractionRules="@xml/data_extraction_rules"',
+      ),
+      true,
+    );
+  });
+
+  test('file provider overrides open_filex with secure filepaths', () {
+    expect(manifest.contains('@xml/filepaths'), true);
+    final filepathsXml = File('android/app/src/main/res/xml/filepaths.xml')
+        .readAsStringSync();
+    expect(filepathsXml.contains('root-path'), false);
   });
 }

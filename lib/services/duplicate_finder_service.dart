@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
@@ -59,7 +60,7 @@ class DuplicateFinderService {
 
   /// Two-pass bit-exact hash verification:
   /// Pass 1: 4KB Prefix hash (eliminates ~99.9% false positives instantly)
-  /// Pass 2: Full streaming SHA-256 for collision survivors
+  /// Pass 2: Full streaming SHA-256 in 64 KB chunks for collision survivors (zero OOM risk)
   /// Runs off the UI thread in a background isolate.
   static Future<List<StorageItem>> verifyWithHashes({
     required List<StorageItem> items,
@@ -117,17 +118,20 @@ class DuplicateFinderService {
           final file = File(item.path);
           if (!file.existsSync()) continue;
           final raf = file.openSync(mode: FileMode.read);
-          final bytesToRead = math.min(4096, item.size);
-          final buffer = raf.readSync(bytesToRead);
-          raf.closeSync();
-          final prefixDigest = sha256.convert(buffer).toString();
-          prefixMap.putIfAbsent(prefixDigest, () => []).add(item);
+          try {
+            final bytesToRead = math.min(4096, item.size);
+            final buffer = raf.readSync(bytesToRead);
+            final prefixDigest = sha256.convert(buffer).toString();
+            prefixMap.putIfAbsent(prefixDigest, () => []).add(item);
+          } finally {
+            raf.closeSync();
+          }
         } catch (_) {
           // Skip unreadable files
         }
       }
 
-      // Pass 2: Full hash for survivors
+      // Pass 2: Full hash for survivors (streamed in 64 KB chunks to prevent OOM)
       for (final prefixList in prefixMap.values) {
         if (prefixList.length < 2) continue;
 
@@ -141,9 +145,31 @@ class DuplicateFinderService {
               fullHashMap.putIfAbsent('p1_verified', () => []).add(item);
             } else {
               final file = File(item.path);
-              final bytes = file.readAsBytesSync();
-              final fullDigest = sha256.convert(bytes).toString();
-              fullHashMap.putIfAbsent(fullDigest, () => []).add(item);
+              final raf = file.openSync(mode: FileMode.read);
+              try {
+                Digest? resultDigest;
+                final input = sha256.startChunkedConversion(
+                  ChunkedConversionSink<Digest>.withCallback((digests) {
+                    if (digests.isNotEmpty) {
+                      resultDigest = digests.first;
+                    }
+                  }),
+                );
+                const chunkSize = 64 * 1024;
+                while (true) {
+                  final chunk = raf.readSync(chunkSize);
+                  if (chunk.isEmpty) break;
+                  input.add(chunk);
+                }
+                input.close();
+                if (resultDigest != null) {
+                  fullHashMap
+                      .putIfAbsent(resultDigest.toString(), () => [])
+                      .add(item);
+                }
+              } finally {
+                raf.closeSync();
+              }
             }
           } catch (_) {
             // Skip unreadable files

@@ -394,7 +394,9 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
-        worker.shutdown()
+        unregisterVolumeListeners()
+        volumeSink = null
+        worker.shutdownNow()
         super.onDestroy()
     }
     private fun openApplicationStorageDetails(pkgName: String) {
