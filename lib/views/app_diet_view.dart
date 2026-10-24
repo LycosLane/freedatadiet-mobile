@@ -27,7 +27,7 @@ class _AppDietViewState extends State<AppDietView> {
   bool _isLoading = false;
   String _searchFilter = '';
   AppSortMode _sortMode = AppSortMode.cacheDesc;
-  bool _hideSystemApps = true;
+  bool _showSystemApps = false; // System apps hidden by default, user apps always shown
 
   @override
   void initState() {
@@ -48,7 +48,8 @@ class _AppDietViewState extends State<AppDietView> {
 
   List<AppStorageInfo> get _filteredApps {
     var list = _allApps.where((app) {
-      if (_hideSystemApps && app.isSystemApp) return false;
+      // User apps are always shown. System apps are only shown if checked.
+      if (!_showSystemApps && app.isSystemApp) return false;
       if (_searchFilter.isNotEmpty) {
         final query = _searchFilter.toLowerCase();
         final matchesName = app.appName.toLowerCase().contains(query);
@@ -169,10 +170,11 @@ class _AppDietViewState extends State<AppDietView> {
                     ),
                   ),
                   const SizedBox(width: 8),
+                  // System Apps toggle chip: user apps always shown, system apps optional
                   FilterChip(
-                    label: const Text('User Apps', style: TextStyle(fontSize: 11)),
-                    selected: _hideSystemApps,
-                    onSelected: (val) => setState(() => _hideSystemApps = val),
+                    label: const Text('System Apps', style: TextStyle(fontSize: 11.5)),
+                    selected: _showSystemApps,
+                    onSelected: (val) => setState(() => _showSystemApps = val),
                     visualDensity: VisualDensity.compact,
                   ),
                   const SizedBox(width: 4),

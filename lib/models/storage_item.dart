@@ -13,6 +13,7 @@ class StorageItem {
   final bool isLink;
   final bool isDuplicate;
   final String? duplicateGroupId;
+  final bool isScanning; // true while folder size is being calculated in the background
 
   const StorageItem({
     required this.path,
@@ -26,6 +27,7 @@ class StorageItem {
     this.isLink = false,
     this.isDuplicate = false,
     this.duplicateGroupId,
+    this.isScanning = false,
   });
 
   String get badge {
@@ -47,6 +49,7 @@ class StorageItem {
     bool? isLink,
     bool? isDuplicate,
     String? duplicateGroupId,
+    bool? isScanning,
   }) {
     return StorageItem(
       path: path ?? this.path,
@@ -60,6 +63,7 @@ class StorageItem {
       isLink: isLink ?? this.isLink,
       isDuplicate: isDuplicate ?? this.isDuplicate,
       duplicateGroupId: duplicateGroupId ?? this.duplicateGroupId,
+      isScanning: isScanning ?? this.isScanning,
     );
   }
 }

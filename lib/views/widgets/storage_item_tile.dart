@@ -80,6 +80,38 @@ class StorageItemTile extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (item.isScanning) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 8,
+                                height: 8,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.2,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                'scanning',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       if (item.isDuplicate) ...[
                         const SizedBox(width: 4),
                         Container(
@@ -123,20 +155,32 @@ class StorageItemTile extends StatelessWidget {
                 // Size Column
                 SizedBox(
                   width: 75,
-                  child: Text(
-                    SizeFormatter.formatBytes(item.size),
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
+                  child: item.isScanning
+                      ? Align(
+                          alignment: Alignment.centerRight,
+                          child: SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        )
+                      : Text(
+                          SizeFormatter.formatBytes(item.size),
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
                 ),
               ],
             ),
             const SizedBox(height: 5),
-            UsageBar(ratio: ratio, height: 3.5),
+            UsageBar(ratio: item.isScanning ? 0.05 : ratio, height: 3.5),
           ],
         ),
       ),
@@ -144,6 +188,9 @@ class StorageItemTile extends StatelessWidget {
   }
 
   String _formatDateOrChildCount() {
+    if (item.isScanning) {
+      return 'calculating...';
+    }
     if (item.isDirectory) {
       return '${item.childCount} items';
     }

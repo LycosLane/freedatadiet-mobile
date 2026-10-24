@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import '../core/theme/app_colors.dart';
@@ -12,7 +14,7 @@ import 'widgets/column_header_row.dart';
 import 'widgets/delete_confirm_dialog.dart';
 import 'widgets/storage_item_tile.dart';
 
-/// Interactive disk usage explorer and cleaner with table header sorting.
+/// Interactive disk usage explorer and cleaner with table header sorting and progressive folder scanning.
 class DiskBrowserView extends StatefulWidget {
   final List<String> rootPaths;
   final UserSettings settings;
@@ -44,6 +46,7 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
   List<StorageItem> _items = [];
   bool _isLoading = false;
   final Set<String> _selectedPaths = {};
+  StreamSubscription<FolderSizeUpdate>? _folderScanSub;
 
   @override
   void initState() {
@@ -53,15 +56,26 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
   }
 
   @override
+  void dispose() {
+    _folderScanSub?.cancel();
+    super.dispose();
+  }
+
+  @override
   void didUpdateWidget(DiskBrowserView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.rootPaths != oldWidget.rootPaths ||
-        widget.settings.includeSubfolders != oldWidget.settings.includeSubfolders ||
-        widget.settings.showHiddenFiles != oldWidget.settings.showHiddenFiles ||
-        widget.settings.duplicateCriteria.matchSize != oldWidget.settings.duplicateCriteria.matchSize ||
+    // Compare rootPaths using listEquals so selection mode toggling doesn't trigger a rescan!
+    final rootPathsChanged = !listEquals(widget.rootPaths, oldWidget.rootPaths);
+    final includeSubfoldersChanged = widget.settings.includeSubfolders != oldWidget.settings.includeSubfolders;
+    final showHiddenChanged = widget.settings.showHiddenFiles != oldWidget.settings.showHiddenFiles;
+    final criteriaChanged = widget.settings.duplicateCriteria.matchSize != oldWidget.settings.duplicateCriteria.matchSize ||
         widget.settings.duplicateCriteria.matchName != oldWidget.settings.duplicateCriteria.matchName ||
-        widget.settings.duplicateCriteria.matchTimestamp != oldWidget.settings.duplicateCriteria.matchTimestamp) {
-      if (widget.rootPaths.isNotEmpty && !widget.rootPaths.contains(_currentPath) && !_currentPath.startsWith(widget.rootPaths.first)) {
+        widget.settings.duplicateCriteria.matchTimestamp != oldWidget.settings.duplicateCriteria.matchTimestamp;
+
+    if (rootPathsChanged || includeSubfoldersChanged || showHiddenChanged || criteriaChanged) {
+      if (widget.rootPaths.isNotEmpty &&
+          !widget.rootPaths.contains(_currentPath) &&
+          !_currentPath.startsWith(widget.rootPaths.first)) {
         _currentPath = widget.rootPaths.first;
       }
       _scanCurrentPath();
@@ -69,27 +83,62 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
   }
 
   Future<void> _scanCurrentPath() async {
-    setState(() => _isLoading = true);
+    _folderScanSub?.cancel();
 
-    final pathsToScan = widget.settings.includeSubfolders && widget.rootPaths.length > 1
-        ? widget.rootPaths
-        : [_currentPath];
+    if (widget.settings.includeSubfolders) {
+      setState(() => _isLoading = true);
+      final pathsToScan = widget.rootPaths.length > 1 ? widget.rootPaths : [_currentPath];
 
-    final scanned = await StorageScannerService.scanDirectory(
-      paths: pathsToScan,
-      includeSubfolders: widget.settings.includeSubfolders,
+      final deepItems = await StorageScannerService.scanDeepRecursive(
+        rootPaths: pathsToScan,
+        showHidden: widget.settings.showHiddenFiles,
+        excludedPatterns: widget.settings.excludedPatterns,
+        duplicateCriteria: widget.settings.duplicateCriteria,
+      );
+
+      if (mounted) {
+        setState(() {
+          _items = deepItems;
+          _isLoading = false;
+          _selectedPaths.clear();
+        });
+      }
+      return;
+    }
+
+    // Step 1: Immediately show shallow directory entries (< 5ms)
+    final immediateItems = StorageScannerService.getImmediateShallowItems(
+      path: _currentPath,
       showHidden: widget.settings.showHiddenFiles,
       excludedPatterns: widget.settings.excludedPatterns,
-      duplicateCriteria: widget.settings.duplicateCriteria,
     );
 
-    if (mounted) {
+    setState(() {
+      _items = immediateItems;
+      _isLoading = false;
+      _selectedPaths.clear();
+    });
+
+    // Step 2: Progressively calculate subfolder sizes in background
+    final dirPathsToScan = immediateItems.where((i) => i.isDirectory).map((i) => i.path).toList();
+    if (dirPathsToScan.isEmpty) return;
+
+    _folderScanSub = StorageScannerService.calculateFolderSizesProgressive(
+      dirPaths: dirPathsToScan,
+      excludedPatterns: widget.settings.excludedPatterns,
+    ).listen((update) {
+      if (!mounted) return;
       setState(() {
-        _items = scanned;
-        _isLoading = false;
-        _selectedPaths.clear();
+        final index = _items.indexWhere((i) => i.path == update.path);
+        if (index != -1) {
+          _items[index] = _items[index].copyWith(
+            size: update.size,
+            childCount: update.childCount,
+            isScanning: false,
+          );
+        }
       });
-    }
+    });
   }
 
   List<StorageItem> get _visibleItems {
@@ -127,6 +176,12 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
 
     // Table Column Sorting
     list.sort((a, b) {
+      // When sorting by size descending: folders still scanning appear on top!
+      if (widget.settings.sortColumn == SortColumn.size && widget.settings.sortDescending) {
+        if (a.isScanning && !b.isScanning) return -1;
+        if (!a.isScanning && b.isScanning) return 1;
+      }
+
       if (!widget.settings.includeSubfolders) {
         // In hierarchy mode, keep directories grouped on top
         if (a.isDirectory && !b.isDirectory) return -1;

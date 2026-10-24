@@ -4,7 +4,7 @@ import '../../core/utils/size_formatter.dart';
 import '../../models/app_storage_info.dart';
 import 'usage_bar.dart';
 
-/// Renders a single row in the App Diet view with Cache/Data breakdown and 1-tap Settings action.
+/// Renders a single row in the App Diet view with prominent Cache/Data metrics and 1-tap Settings navigation.
 class AppItemTile extends StatelessWidget {
   final AppStorageInfo app;
   final double ratio;
@@ -28,7 +28,7 @@ class AppItemTile extends StatelessWidget {
     return InkWell(
       onTap: onOpenStorageSettings,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(color: theme.dividerColor, width: 0.5),
@@ -46,15 +46,15 @@ class AppItemTile extends StatelessWidget {
                   child: app.iconBytes != null
                       ? Image.memory(
                           app.iconBytes!,
-                          width: 38,
-                          height: 38,
+                          width: 42,
+                          height: 42,
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => _fallbackIcon(theme),
                         )
                       : _fallbackIcon(theme),
                 ),
-                const SizedBox(width: 10),
-                // App Details
+                const SizedBox(width: 12),
+                // App Details & Breakdown
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -67,15 +67,15 @@ class AppItemTile extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 14,
+                                fontSize: 14.5,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
                           if (app.isSystemApp) ...[
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
                               decoration: BoxDecoration(
                                 color: AppColors.badgeSys.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(3),
@@ -83,7 +83,7 @@ class AppItemTile extends StatelessWidget {
                               child: const Text(
                                 'SYSTEM',
                                 style: TextStyle(
-                                  fontSize: 9,
+                                  fontSize: 9.5,
                                   color: AppColors.badgeSys,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -92,9 +92,11 @@ class AppItemTile extends StatelessWidget {
                           ],
                         ],
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 5),
+                      // Prominent Cache, Data, and APK labels
                       Wrap(
-                        spacing: 8,
+                        spacing: 10,
+                        runSpacing: 4,
                         children: [
                           _buildStatBadge(
                             label: 'Cache: ${SizeFormatter.formatBytes(app.cacheBytes)}',
@@ -103,50 +105,43 @@ class AppItemTile extends StatelessWidget {
                           ),
                           Text(
                             'Data: ${SizeFormatter.formatBytes(app.dataBytes)}',
-                            style: TextStyle(fontSize: 11, color: secondaryTextColor),
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: secondaryTextColor,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                           Text(
                             'APK: ${SizeFormatter.formatBytes(app.appBytes)}',
-                            style: TextStyle(fontSize: 11, color: secondaryTextColor),
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: secondaryTextColor,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                // Total Size & Action
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                const SizedBox(width: 10),
+                // Total Size & Arrow
+                Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       SizeFormatter.formatBytes(app.totalBytes),
                       style: const TextStyle(
-                        fontSize: 13.5,
+                        fontSize: 14.5,
                         fontWeight: FontWeight.w700,
                         fontFamily: 'monospace',
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    OutlinedButton(
-                      onPressed: onOpenStorageSettings,
-                      style: OutlinedButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        minimumSize: const Size(60, 26),
-                        textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-                        side: BorderSide(
-                          color: isHeavyCache
-                              ? AppColors.accentRose.withValues(alpha: 0.7)
-                              : theme.colorScheme.primary.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: Text(
-                        isHeavyCache ? 'Clean Cache' : 'Storage',
-                        style: TextStyle(
-                          color: isHeavyCache ? AppColors.accentRose : theme.colorScheme.primary,
-                        ),
-                      ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 20,
+                      color: secondaryTextColor.withValues(alpha: 0.6),
                     ),
                   ],
                 ),
@@ -162,17 +157,17 @@ class AppItemTile extends StatelessWidget {
 
   Widget _buildStatBadge({required String label, required Color color, bool isBold = false}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(3),
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 10.5,
+          fontSize: 12.5,
           color: color,
-          fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
+          fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
         ),
       ),
     );
@@ -180,10 +175,10 @@ class AppItemTile extends StatelessWidget {
 
   Widget _fallbackIcon(ThemeData theme) {
     return Container(
-      width: 38,
-      height: 38,
+      width: 42,
+      height: 42,
       color: theme.colorScheme.primary.withValues(alpha: 0.12),
-      child: Icon(Icons.android_rounded, size: 22, color: theme.colorScheme.primary),
+      child: Icon(Icons.android_rounded, size: 24, color: theme.colorScheme.primary),
     );
   }
 }
