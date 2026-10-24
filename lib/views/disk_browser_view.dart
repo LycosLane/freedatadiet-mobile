@@ -23,6 +23,8 @@ import 'widgets/browser_status_widgets.dart';
 import 'widgets/delete_flow.dart';
 import 'widgets/drag_select_list_view.dart';
 import 'widgets/subfolder_diff_list_view.dart';
+import '../core/theme/app_colors.dart';
+import '../services/duplicate_assistant_service.dart';
 import '../services/subfolder_grouper.dart';
 import 'image_viewer_screen.dart';
 
@@ -117,7 +119,8 @@ class DiskBrowserViewState extends State<DiskBrowserView> {
         now.duplicateCriteria.matchSize != old.duplicateCriteria.matchSize ||
         now.duplicateCriteria.matchName != old.duplicateCriteria.matchName ||
         now.duplicateCriteria.matchTimestamp !=
-            old.duplicateCriteria.matchTimestamp;
+            old.duplicateCriteria.matchTimestamp ||
+        now.duplicateCriteria.verifyHash != old.duplicateCriteria.verifyHash;
 
     if (oldWidget.isSelectionMode && !widget.isSelectionMode) {
       _selectedPaths.clear();
@@ -131,14 +134,31 @@ class DiskBrowserViewState extends State<DiskBrowserView> {
     } else if (scanInputsChanged) {
       _scanCurrentPath();
     } else if (criteriaChanged) {
-      // Re-evaluate duplicates on existing items
-      setState(() {
-        _items = DuplicateFinderService.markDuplicates(
-          items: _items,
-          criteria: widget.settings.duplicateCriteria,
-        );
-        _itemsChanged();
-      });
+      _reapplyDuplicates();
+    }
+  }
+
+  Future<void> _reapplyDuplicates() async {
+    final marked = DuplicateFinderService.markDuplicates(
+      items: _items,
+      criteria: widget.settings.duplicateCriteria,
+    );
+    setState(() {
+      _items = marked;
+      _itemsChanged();
+    });
+
+    if (widget.settings.duplicateCriteria.verifyHash) {
+      final verified = await DuplicateFinderService.verifyWithHashes(
+        items: _items,
+        criteria: widget.settings.duplicateCriteria,
+      );
+      if (mounted) {
+        setState(() {
+          _items = verified;
+          _itemsChanged();
+        });
+      }
     }
   }
 
@@ -242,6 +262,20 @@ class DiskBrowserViewState extends State<DiskBrowserView> {
       _itemsChanged();
     });
 
+    if (widget.settings.duplicateCriteria.verifyHash) {
+      DuplicateFinderService.verifyWithHashes(
+        items: _items,
+        criteria: widget.settings.duplicateCriteria,
+      ).then((verified) {
+        if (mounted && generation == _generation) {
+          setState(() {
+            _items = verified;
+            _itemsChanged();
+          });
+        }
+      });
+    }
+
     final dirPaths = listing.items
         .where((i) => i.isDirectory)
         .map((i) => i.path)
@@ -309,6 +343,20 @@ class DiskBrowserViewState extends State<DiskBrowserView> {
       _storageGone = rootMissing && _items.isEmpty;
       _itemsChanged();
     });
+
+    if (widget.settings.duplicateCriteria.verifyHash) {
+      DuplicateFinderService.verifyWithHashes(
+        items: _items,
+        criteria: widget.settings.duplicateCriteria,
+      ).then((verified) {
+        if (mounted) {
+          setState(() {
+            _items = verified;
+            _itemsChanged();
+          });
+        }
+      });
+    }
   }
 
   void _scheduleFlush() {
@@ -598,7 +646,80 @@ class DiskBrowserViewState extends State<DiskBrowserView> {
         Expanded(child: _buildBody(theme, visible)),
 
         // Batch Action Bar during Selection Mode
-        if (widget.isSelectionMode)
+        if (widget.isSelectionMode) ...[
+          Builder(
+            builder: (context) {
+              final duplicateSuggestion =
+                  DuplicateAssistantService.findSuggestion(
+                    allItems: _items,
+                    selectedPaths: _selectedPaths,
+                  );
+              if (duplicateSuggestion == null) return const SizedBox.shrink();
+
+              final isDark = theme.brightness == Brightness.dark;
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? const Color(0xFF2C2416)
+                      : const Color(0xFFFFF7ED),
+                  border: Border(
+                    top: BorderSide(
+                      color: AppColors.accentAmber.withValues(alpha: 0.5),
+                      width: 0.8,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.auto_fix_high_rounded,
+                      size: 18,
+                      color: AppColors.accentAmber,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${duplicateSuggestion.count} other duplicate${duplicateSuggestion.count > 1 ? 's' : ''} in "${duplicateSuggestion.directoryName}".',
+                        style: TextStyle(
+                          fontSize: (12.0 * widget.settings.textScale).clamp(
+                            9.5,
+                            16.0,
+                          ),
+                          color: isDark
+                              ? Colors.amber.shade200
+                              : Colors.brown.shade800,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _selectedPaths.addAll(
+                            duplicateSuggestion.candidatePaths,
+                          );
+                        });
+                      },
+                      child: Text(
+                        'Select in "${duplicateSuggestion.directoryName}"',
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           BatchDeleteBar(
             selectedCount: _selectedPaths.length,
             selectedTotalBytes: totalSelectedBytes,
@@ -615,6 +736,7 @@ class DiskBrowserViewState extends State<DiskBrowserView> {
               _deselectAll();
             },
           ),
+        ],
       ],
     );
   }

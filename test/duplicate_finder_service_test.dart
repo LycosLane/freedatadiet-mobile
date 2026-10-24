@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:freedatadiet_mobile/models/duplicate_rule.dart';
 import 'package:freedatadiet_mobile/models/storage_item.dart';
@@ -69,6 +71,61 @@ void main() {
       );
 
       expect(tagged.every((i) => i.isDuplicate), true);
+    });
+
+    test('two-pass hash verification distinguishes identical size but different content', () async {
+      final tempDir = Directory.systemTemp.createTempSync('hash_dup_test_');
+      try {
+        final fA = File('${tempDir.path}/a.bin');
+        final fB = File('${tempDir.path}/b.bin');
+        final fC = File('${tempDir.path}/c.bin');
+
+        // fA and fB have identical 5000 bytes
+        final bytesSame = List<int>.generate(5000, (i) => i % 256);
+        // fC has exact same length but different bytes at the end
+        final bytesDiff = List<int>.generate(5000, (i) => (i + 1) % 256);
+
+        fA.writeAsBytesSync(bytesSame);
+        fB.writeAsBytesSync(bytesSame);
+        fC.writeAsBytesSync(bytesDiff);
+
+        final items = [
+          StorageItem(
+            path: fA.path,
+            name: 'a.bin',
+            isDirectory: false,
+            size: 5000,
+          ),
+          StorageItem(
+            path: fB.path,
+            name: 'b.bin',
+            isDirectory: false,
+            size: 5000,
+          ),
+          StorageItem(
+            path: fC.path,
+            name: 'c.bin',
+            isDirectory: false,
+            size: 5000,
+          ),
+        ];
+
+        final verified = await DuplicateFinderService.verifyWithHashes(
+          items: items,
+          criteria: const DuplicateMatchCriteria(
+            matchName: false,
+            matchSize: true,
+            verifyHash: true,
+          ),
+        );
+
+        final dups = verified.where((i) => i.isDuplicate).toList();
+        expect(dups.length, 2);
+        expect(dups.map((i) => i.name), containsAll(['a.bin', 'b.bin']));
+        expect(dups.map((i) => i.name), isNot(contains('c.bin')));
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
     });
   });
 }

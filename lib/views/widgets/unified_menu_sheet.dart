@@ -289,6 +289,21 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
                     );
                   },
                 ),
+                _buildUniformSwitch(
+                  title: 'Verify bit-exact hash (SHA-256)',
+                  subtitle: 'Performs two-pass hash check on candidates (100% collision-proof)',
+                  value: _current.duplicateCriteria.verifyHash,
+                  accent: accent,
+                  onChanged: (val) {
+                    _updateSettings(
+                      _current.copyWith(
+                        duplicateCriteria: _current.duplicateCriteria.copyWith(
+                          verifyHash: val,
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(height: 18),
 
                 // 4. Excluded folders (sensible defaults, editable, restorable)

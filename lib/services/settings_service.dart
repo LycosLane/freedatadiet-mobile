@@ -32,6 +32,7 @@ class SettingsService {
   static const String _keyDupMatchSize = 'dup_match_size';
   static const String _keyDupMatchName = 'dup_match_name';
   static const String _keyDupMatchTimestamp = 'dup_match_timestamp';
+  static const String _keyDupVerifyHash = 'dup_verify_hash';
 
   // Reorderable Locations & Favorites
   static const String _keyLocations = 'saved_locations_json';
@@ -74,6 +75,7 @@ class SettingsService {
     final matchSize = prefs.getBool(_keyDupMatchSize) ?? true;
     final matchName = prefs.getBool(_keyDupMatchName) ?? true;
     final matchTimestamp = prefs.getBool(_keyDupMatchTimestamp) ?? false;
+    final verifyHash = prefs.getBool(_keyDupVerifyHash) ?? false;
 
     // Locations & Favorites
     final locationsRaw = prefs.getString(_keyLocations);
@@ -143,6 +145,7 @@ class SettingsService {
         matchSize: matchSize,
         matchName: matchName,
         matchTimestamp: matchTimestamp,
+        verifyHash: verifyHash,
       ),
       locations: locations,
     );
@@ -174,6 +177,10 @@ class SettingsService {
     await prefs.setBool(
       _keyDupMatchTimestamp,
       settings.duplicateCriteria.matchTimestamp,
+    );
+    await prefs.setBool(
+      _keyDupVerifyHash,
+      settings.duplicateCriteria.verifyHash,
     );
 
     final locationsJson = jsonEncode(
