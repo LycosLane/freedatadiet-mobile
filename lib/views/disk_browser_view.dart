@@ -22,6 +22,8 @@ import 'widgets/column_header_row.dart';
 import 'widgets/browser_status_widgets.dart';
 import 'widgets/delete_flow.dart';
 import 'widgets/drag_select_list_view.dart';
+import 'widgets/subfolder_diff_list_view.dart';
+import '../services/subfolder_grouper.dart';
 import 'image_viewer_screen.dart';
 
 /// Interactive disk usage explorer and cleaner with table header sorting, progressive folder scanning,
@@ -659,6 +661,78 @@ class DiskBrowserViewState extends State<DiskBrowserView> {
       );
     }
 
+    final childWidget = widget.settings.includeSubfolders
+        ? SubfolderDiffListView(
+            entries: SubfolderGrouper.group(
+              items: visible,
+              settings: widget.settings,
+            ),
+            selectedPaths: _selectedPaths,
+            isSelectionMode: widget.isSelectionMode,
+            textScale: widget.settings.textScale,
+            onToggleSelection: _toggleSelection,
+            onSelectAllInGroup: (entry) {
+              setState(() {
+                final allSelected = entry.occurrences.every(
+                  (i) => _selectedPaths.contains(i.path),
+                );
+                if (allSelected) {
+                  for (final i in entry.occurrences) {
+                    _selectedPaths.remove(i.path);
+                  }
+                } else {
+                  for (final i in entry.occurrences) {
+                    _selectedPaths.add(i.path);
+                  }
+                }
+              });
+            },
+            onKeepFirstInGroup: (entry) {
+              setState(() {
+                if (entry.occurrences.isNotEmpty) {
+                  _selectedPaths.remove(entry.occurrences.first.path);
+                  for (int i = 1; i < entry.occurrences.length; i++) {
+                    _selectedPaths.add(entry.occurrences[i].path);
+                  }
+                  if (!widget.isSelectionMode) {
+                    widget.onSelectionModeChanged(true);
+                  }
+                }
+              });
+            },
+            onItemTap: _onItemTap,
+            onItemLongPress: (item) {
+              if (!widget.isSelectionMode) {
+                widget.onSelectionModeChanged(true);
+                _toggleSelection(item.path);
+              }
+            },
+            onRefresh: _scanCurrentPath,
+          )
+        : DragSelectListView(
+            items: visible,
+            selectedPaths: _selectedPaths,
+            isSelectionMode: widget.isSelectionMode,
+            textScale: widget.settings.textScale,
+            computeRatio: _computeRatio,
+            onToggleSelection: _toggleSelection,
+            onRangeSelection: (paths) {
+              setState(() {
+                _selectedPaths
+                  ..clear()
+                  ..addAll(paths);
+              });
+            },
+            onItemTap: _onItemTap,
+            onItemLongPress: (item) {
+              if (!widget.isSelectionMode) {
+                widget.onSelectionModeChanged(true);
+                _toggleSelection(item.path);
+              }
+            },
+            onRefresh: _scanCurrentPath,
+          );
+
     return GestureDetector(
       onScaleStart: (details) {
         _basePinchScale = widget.settings.textScale;
@@ -676,29 +750,7 @@ class DiskBrowserViewState extends State<DiskBrowserView> {
       onScaleEnd: (details) {
         SettingsService.saveSettings(widget.settings);
       },
-      child: DragSelectListView(
-        items: visible,
-        selectedPaths: _selectedPaths,
-        isSelectionMode: widget.isSelectionMode,
-        textScale: widget.settings.textScale,
-        computeRatio: _computeRatio,
-        onToggleSelection: _toggleSelection,
-        onRangeSelection: (paths) {
-          setState(() {
-            _selectedPaths
-              ..clear()
-              ..addAll(paths);
-          });
-        },
-        onItemTap: _onItemTap,
-        onItemLongPress: (item) {
-          if (!widget.isSelectionMode) {
-            widget.onSelectionModeChanged(true);
-            _toggleSelection(item.path);
-          }
-        },
-        onRefresh: _scanCurrentPath,
-      ),
+      child: childWidget,
     );
   }
 }
