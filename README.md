@@ -6,48 +6,38 @@
 [![Zero Telemetry](https://img.shields.io/badge/Telemetry-Zero-brightgreen.svg)]()
 [![No Ads](https://img.shields.io/badge/Ads-None-success.svg)]()
 
-FreeDataDiet shows what is taking up space on your phone, SD cards, and USB drives. It helps you find large files, clear app cache, and delete duplicates.
+FreeDataDiet shows what is taking up space on your phone.
 
-No ads. No paid subscriptions. No fake booster tools. Just clean and honest disk usage info.
+Find large files, clear app cache, delete duplicates.
+
+No ads. No subscriptions. No fake cleaner tools.
 
 ---
 
 ## What It Does
 
-* **Find large files:** Folders open instantly. Sizes update in the background so you see what is eating your storage.
-* **App Diet:** See how much space apps like Spotify, YouTube, or web browsers use for their cache. Tap any app to open Android settings and clear its cache.
-* **Find duplicates:** Spot copies of the same files across different folders. Choose if you want to match by file size, name, or timestamp.
-* **Filter what you see:** Everything is shown by default. Turn off images to see only videos and other files in your camera folder, or search for files like `.pdf` or `.zip`.
-* **Safe deleting:** Turn on selection mode, pick items with checkboxes, and see how much space you get back before deleting anything.
-* **Zoom text:** Pinch with two fingers on the file list or use the menu slider to make text bigger or smaller.
-* **Favorite folders:** Star any folder in selection mode to save it to your menu. Drag and drop folders in the menu to pick which one opens on app start.
+<p align="center">
+  <img src="docs/screenshots/overview.png" width="340" alt="FreeDataDiet Mobile Screenshot">
+</p>
+
+* **Disk Explorer:** See which folders and files use the most space.
+* **App Diet:** See how much space each app uses for its cache. Clear it with one tap in Android settings.
+* **Duplicate Finder:** Spot identical files across folders.
+* **Custom Filters:** Turn off images to see only videos, or filter by file extension.
 
 ---
 
-## How It Is Different
+## We Don't Collect or Sell Your Data
 
-Most phone cleaner apps show fake animations, pop up ads, or try to sell you monthly subscriptions.
-
-FreeDataDiet is built differently:
-
-* **No fake tools:** It does not pretend to boost your RAM or cool your CPU. It simply shows your real files and folders.
-* **No ads or popups:** The app is completely quiet and ad-free.
-* **You stay in control:** The app never deletes anything on its own. You pick what gets removed.
-* **Fast and smooth:** Folders open right away without freezing your phone.
-
----
-
-## Privacy and Trust
-
-* **No internet access:** The app does not have internet permission. It cannot send your files, photos, or data anywhere.
-* **No tracking:** There are no analytics, no accounts, and no background trackers.
-* **Open source:** The full code is available under the MIT license for anyone to check.
+* **No internet access:** The app does not ask for internet permission. It cannot send your files or data anywhere.
+* **No tracking:** There are no analytics, no advertising SDKs, and no accounts.
+* **No ads:** Completely ad-free with zero popups or subscriptions.
+* **No fake tools:** No placebo RAM cleaners or fake CPU coolers. You see real files and decide what to delete.
+* **Open source:** Free software licensed under the MIT license.
 
 ---
 
 ## Permissions
-
-FreeDataDiet only asks for two permissions:
 
 * **All Files Access:** Needed on Android 11+ to read file and folder sizes.
 * **Usage Access:** Needed to check app cache sizes directly from Android system settings.
