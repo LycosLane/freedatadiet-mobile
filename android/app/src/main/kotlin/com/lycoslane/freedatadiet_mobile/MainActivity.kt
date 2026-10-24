@@ -228,7 +228,8 @@ class MainActivity : FlutterActivity() {
                     val uuid = if (appInfo.storageUuid != null) appInfo.storageUuid else StorageManager.UUID_DEFAULT
                     val stats = storageStatsManager.queryStatsForPackage(uuid, packageName, Process.myUserHandle())
                     appBytes = stats.appBytes
-                    dataBytes = stats.dataBytes
+                    // StorageStats.dataBytes already includes cacheBytes: split them to avoid double counting
+                    dataBytes = (stats.dataBytes - stats.cacheBytes).coerceAtLeast(0)
                     cacheBytes = stats.cacheBytes
                 } catch (_: Exception) {
                     // Fallback to checking apk size if stats permission wasn't granted or package inaccessible

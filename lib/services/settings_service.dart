@@ -48,7 +48,7 @@ class SettingsService {
     final sortColumn = SortColumn.values.elementAtOrNull(sortColIndex) ?? SortColumn.size;
     final sortDesc = prefs.getBool(_keySortDescending) ?? true;
 
-    final textScale = prefs.getDouble(_keyTextScale) ?? 1.0;
+    final textScale = (prefs.getDouble(_keyTextScale) ?? 1.0).clamp(0.8, 1.6).toDouble();
     final customFilter = prefs.getString(_keyCustomFilter) ?? '';
 
     // "What's Shown" - Default is true for all categories!

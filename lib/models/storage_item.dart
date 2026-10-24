@@ -50,6 +50,7 @@ class StorageItem {
     bool? isDuplicate,
     String? duplicateGroupId,
     bool? isScanning,
+    bool clearDuplicateGroup = false,
   }) {
     return StorageItem(
       path: path ?? this.path,
@@ -62,7 +63,7 @@ class StorageItem {
       isSystem: isSystem ?? this.isSystem,
       isLink: isLink ?? this.isLink,
       isDuplicate: isDuplicate ?? this.isDuplicate,
-      duplicateGroupId: duplicateGroupId ?? this.duplicateGroupId,
+      duplicateGroupId: clearDuplicateGroup ? null : (duplicateGroupId ?? this.duplicateGroupId),
       isScanning: isScanning ?? this.isScanning,
     );
   }

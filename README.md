@@ -1,6 +1,6 @@
 # FreeDataDiet Mobile
 
-[![Version: 1.4.0](https://img.shields.io/badge/version-1.4.0-blue.svg)](https://github.com/LycosLane)
+[![Version: 1.4.1](https://img.shields.io/badge/version-1.4.1-blue.svg)](https://github.com/LycosLane)
 [![Platform: Android | Linux Mobile](https://img.shields.io/badge/Platform-Android%20%7C%20Linux%20Mobile-0078D6.svg)](https://github.com/LycosLane)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Zero Telemetry](https://img.shields.io/badge/Telemetry-Zero-brightgreen.svg)]()

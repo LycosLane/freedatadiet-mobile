@@ -11,7 +11,7 @@ class DuplicateFinderService {
     required DuplicateMatchCriteria criteria,
   }) {
     if (!criteria.isEnabled) {
-      return items.map((i) => i.copyWith(isDuplicate: false, duplicateGroupId: null)).toList();
+      return items.map((i) => i.copyWith(isDuplicate: false, clearDuplicateGroup: true)).toList();
     }
 
     // Only compare files, not directories
@@ -49,7 +49,7 @@ class DuplicateFinderService {
       }
       return item.copyWith(
         isDuplicate: false,
-        duplicateGroupId: null,
+        clearDuplicateGroup: true,
       );
     }).toList();
   }

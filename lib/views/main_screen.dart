@@ -95,7 +95,9 @@ class _MainScreenState extends State<MainScreen> {
 
   SavedLocation get _currentLocation {
     final locs = _mergedLocations;
-    return locs.where((l) => l.id == _selectedLocationId).firstOrNull ?? locs.first;
+    return locs.where((l) => l.id == _selectedLocationId).firstOrNull ??
+        locs.firstOrNull ??
+        const SavedLocation(id: 'internal', name: 'Internal Storage', path: '/storage/emulated/0', type: 'internal');
   }
 
   List<String> get _activeRootPaths {
