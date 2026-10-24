@@ -28,8 +28,9 @@ import '../services/duplicate_assistant_service.dart';
 import '../services/subfolder_grouper.dart';
 import 'image_viewer_screen.dart';
 
-/// Interactive disk usage explorer and cleaner with table header sorting, progressive folder scanning,
-/// fluid pinch-to-zoom scaling, folder favoriting, and duplicate clustering.
+/// Interactive disk usage explorer with table sorting, progressive folder scanning,
+/// fluid pinch-to-zoom scaling, continuous drag-to-select, subfolder diff-grouping,
+/// in-app media preview, two-pass duplicate detection, and smart cleaning assistant.
 class DiskBrowserView extends StatefulWidget {
   final List<String> rootPaths;
   final UserSettings settings;

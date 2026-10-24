@@ -545,7 +545,9 @@ class _UnifiedMenuSheetState extends State<UnifiedMenuSheet> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogCtx).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.accentRose),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.accentRose,
+            ),
             child: const Text('Reset Defaults'),
           ),
         ],
