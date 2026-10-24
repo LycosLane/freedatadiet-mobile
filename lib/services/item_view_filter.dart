@@ -64,6 +64,13 @@ class ItemViewFilter {
     '.xz',
   };
 
+  /// Returns true if the file path has an image extension.
+  static bool isImage(String path) {
+    final dot = path.lastIndexOf('.');
+    if (dot == -1) return false;
+    return imageExts.contains(path.substring(dot).toLowerCase());
+  }
+
   /// Returns the items that should be visible, sorted according to [settings].
   /// [searchQuery] (from the app bar) wins over the saved filter text.
   static List<StorageItem> apply({

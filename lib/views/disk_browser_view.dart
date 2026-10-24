@@ -21,7 +21,8 @@ import 'widgets/breadcrumb_bar.dart';
 import 'widgets/column_header_row.dart';
 import 'widgets/browser_status_widgets.dart';
 import 'widgets/delete_flow.dart';
-import 'widgets/storage_item_tile.dart';
+import 'widgets/drag_select_list_view.dart';
+import 'image_viewer_screen.dart';
 
 /// Interactive disk usage explorer and cleaner with table header sorting, progressive folder scanning,
 /// fluid pinch-to-zoom scaling, folder favoriting, and duplicate clustering.
@@ -449,6 +450,20 @@ class DiskBrowserViewState extends State<DiskBrowserView> {
       _toggleSelection(item.path);
     } else if (item.isDirectory) {
       _navigateTo(item.path);
+    } else if (ItemViewFilter.isImage(item.path)) {
+      final visibleImages = _visibleItems()
+          .where((i) => !i.isDirectory && ItemViewFilter.isImage(i.path))
+          .toList();
+      final imgIndex = visibleImages.indexWhere((i) => i.path == item.path);
+      if (imgIndex != -1) {
+        ImageViewerScreen.show(
+          context: context,
+          items: visibleImages,
+          initialIndex: imgIndex,
+        );
+      } else {
+        OpenFilex.open(item.path);
+      }
     } else {
       OpenFilex.open(item.path);
     }
@@ -661,30 +676,28 @@ class DiskBrowserViewState extends State<DiskBrowserView> {
       onScaleEnd: (details) {
         SettingsService.saveSettings(widget.settings);
       },
-      child: RefreshIndicator(
+      child: DragSelectListView(
+        items: visible,
+        selectedPaths: _selectedPaths,
+        isSelectionMode: widget.isSelectionMode,
+        textScale: widget.settings.textScale,
+        computeRatio: _computeRatio,
+        onToggleSelection: _toggleSelection,
+        onRangeSelection: (paths) {
+          setState(() {
+            _selectedPaths
+              ..clear()
+              ..addAll(paths);
+          });
+        },
+        onItemTap: _onItemTap,
+        onItemLongPress: (item) {
+          if (!widget.isSelectionMode) {
+            widget.onSelectionModeChanged(true);
+            _toggleSelection(item.path);
+          }
+        },
         onRefresh: _scanCurrentPath,
-        child: ListView.builder(
-          itemCount: visible.length,
-          itemBuilder: (context, index) {
-            final item = visible[index];
-            return StorageItemTile(
-              key: ValueKey(item.path),
-              item: item,
-              ratio: _computeRatio(item),
-              isSelectionMode: widget.isSelectionMode,
-              isSelected: _selectedPaths.contains(item.path),
-              textScale: widget.settings.textScale,
-              onSelectChanged: (_) => _toggleSelection(item.path),
-              onTap: () => _onItemTap(item),
-              onLongPress: () {
-                if (!widget.isSelectionMode) {
-                  widget.onSelectionModeChanged(true);
-                  _toggleSelection(item.path);
-                }
-              },
-            );
-          },
-        ),
       ),
     );
   }
