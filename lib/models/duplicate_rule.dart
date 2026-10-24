@@ -1,30 +1,26 @@
-/// Criteria options used to determine if two or more files are duplicates.
-enum DuplicateMatchMode {
-  nameAndSize('Same Name & Same Size', 'Matches files with exact identical filename and byte size.'),
-  sizeOnly('Same Size Only', 'Matches files with exact same byte count (catches renamed clones).'),
-  nameOnly('Same Name Only', 'Matches files sharing identical names across different folders.'),
-  timestampOnly('Same Timestamp Only', 'Matches files modified at the identical timestamp.'),
-  nameSizeAndTimestamp('Same Name, Size & Timestamp', 'Strict match on filename, bytes, and timestamp (ideal for photos).');
+/// Configurable duplicate matching criteria with independent toggles.
+class DuplicateMatchCriteria {
+  final bool matchSize;
+  final bool matchName;
+  final bool matchTimestamp;
 
-  final String label;
-  final String description;
-
-  const DuplicateMatchMode(this.label, this.description);
-}
-
-/// Helper model for clustered duplicates.
-class DuplicateGroup {
-  final String groupId;
-  final String key;
-  final List<String> filePaths;
-  final int individualSizeBytes;
-
-  const DuplicateGroup({
-    required this.groupId,
-    required this.key,
-    required this.filePaths,
-    required this.individualSizeBytes,
+  const DuplicateMatchCriteria({
+    this.matchSize = true,
+    this.matchName = true,
+    this.matchTimestamp = false,
   });
 
-  int get totalWastedBytes => (filePaths.length - 1) * individualSizeBytes;
+  bool get isEnabled => matchSize || matchName || matchTimestamp;
+
+  DuplicateMatchCriteria copyWith({
+    bool? matchSize,
+    bool? matchName,
+    bool? matchTimestamp,
+  }) {
+    return DuplicateMatchCriteria(
+      matchSize: matchSize ?? this.matchSize,
+      matchName: matchName ?? this.matchName,
+      matchTimestamp: matchTimestamp ?? this.matchTimestamp,
+    );
+  }
 }

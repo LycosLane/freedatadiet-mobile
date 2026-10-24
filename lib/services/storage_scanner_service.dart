@@ -1,5 +1,6 @@
-import 'dart:io';
+import 'dart:io' show Directory, File, FileSystemEntity, FileSystemEntityType, Link;
 import 'dart:isolate';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/duplicate_rule.dart';
 import '../models/storage_item.dart';
 import 'duplicate_finder_service.dart';
@@ -7,18 +8,18 @@ import 'duplicate_finder_service.dart';
 /// Request payload for scanning a directory in a background isolate.
 class _ScanRequest {
   final List<String> rootPaths;
-  final bool isRecursive;
+  final bool includeSubfolders;
   final bool showHidden;
   final List<String> excludedPatterns;
-  final DuplicateMatchMode duplicateMode;
+  final DuplicateMatchCriteria duplicateCriteria;
   final SendPort sendPort;
 
   const _ScanRequest({
     required this.rootPaths,
-    required this.isRecursive,
+    required this.includeSubfolders,
     required this.showHidden,
     required this.excludedPatterns,
-    required this.duplicateMode,
+    required this.duplicateCriteria,
     required this.sendPort,
   });
 }
@@ -27,22 +28,33 @@ class _ScanRequest {
 class StorageScannerService {
   StorageScannerService._();
 
-  /// Scans either immediate directory children or all nested files recursively in a background isolate.
+  /// Scans either immediate directory children or all nested files recursively.
   static Future<List<StorageItem>> scanDirectory({
     required List<String> paths,
-    required bool isRecursive,
+    required bool includeSubfolders,
     required bool showHidden,
     required List<String> excludedPatterns,
-    required DuplicateMatchMode duplicateMode,
+    required DuplicateMatchCriteria duplicateCriteria,
   }) async {
+    if (kIsWeb) {
+      final webItems = _generateWebDemoItems(includeSubfolders, showHidden);
+      if (includeSubfolders) {
+        return DuplicateFinderService.markDuplicates(
+          items: webItems,
+          criteria: duplicateCriteria,
+        );
+      }
+      return webItems;
+    }
+
     final receivePort = ReceivePort();
 
     final request = _ScanRequest(
       rootPaths: paths,
-      isRecursive: isRecursive,
+      includeSubfolders: includeSubfolders,
       showHidden: showHidden,
       excludedPatterns: excludedPatterns,
-      duplicateMode: duplicateMode,
+      duplicateCriteria: duplicateCriteria,
       sendPort: receivePort.sendPort,
     );
 
@@ -50,18 +62,17 @@ class StorageScannerService {
     final List<StorageItem> rawItems = await receivePort.first as List<StorageItem>;
     receivePort.close();
 
-    // If in recursive view, process duplicate matching
-    if (isRecursive) {
+    if (includeSubfolders) {
       return DuplicateFinderService.markDuplicates(
         items: rawItems,
-        mode: duplicateMode,
+        criteria: duplicateCriteria,
       );
     }
 
     return rawItems;
   }
 
-  /// Worker function executed in the background isolate.
+  /// Worker function executed in the background isolate on native platforms.
   static void _isolateWorker(_ScanRequest request) {
     final List<StorageItem> results = [];
 
@@ -69,7 +80,7 @@ class StorageScannerService {
       final rootDir = Directory(rootPath);
       if (!rootDir.existsSync()) continue;
 
-      if (request.isRecursive) {
+      if (request.includeSubfolders) {
         _collectAllNestedFiles(
           dir: rootDir,
           results: results,
@@ -185,7 +196,6 @@ class StorageScannerService {
         if (child is File) {
           totalBytes += _safeFileLength(child);
         } else if (child is Directory) {
-          // Approximate first-level directory size
           totalBytes += _shallowDirSize(child);
         }
       }
@@ -237,8 +247,13 @@ class StorageScannerService {
     return '';
   }
 
-  /// Permanently deletes a list of files or directories. Returns number of successfully deleted items.
+  /// Permanently deletes a list of files or directories.
   static Future<int> deleteItems(List<String> paths) async {
+    if (kIsWeb) {
+      _webDeletedPaths.addAll(paths);
+      return paths.length;
+    }
+
     int deletedCount = 0;
     for (final path in paths) {
       try {
@@ -253,6 +268,128 @@ class StorageScannerService {
       } catch (_) {}
     }
     return deletedCount;
+  }
+
+  static final Set<String> _webDeletedPaths = {};
+
+  static List<StorageItem> _generateWebDemoItems(bool includeSubfolders, bool showHidden) {
+    final now = DateTime.now();
+
+    final allDemo = <StorageItem>[
+      // Directories (visible when not including subfolders)
+      if (!includeSubfolders) ...[
+        StorageItem(
+          path: '/storage/emulated/0/DCIM',
+          name: 'DCIM',
+          isDirectory: true,
+          size: 24 * 1024 * 1024 * 1024 + 800 * 1024 * 1024,
+          childCount: 1420,
+          lastModified: now.subtract(const Duration(hours: 2)),
+        ),
+        StorageItem(
+          path: '/storage/emulated/0/Movies',
+          name: 'Movies',
+          isDirectory: true,
+          size: 18 * 1024 * 1024 * 1024 + 500 * 1024 * 1024,
+          childCount: 24,
+          lastModified: now.subtract(const Duration(days: 3)),
+        ),
+        StorageItem(
+          path: '/storage/emulated/0/Download',
+          name: 'Download',
+          isDirectory: true,
+          size: 14 * 1024 * 1024 * 1024 + 200 * 1024 * 1024,
+          childCount: 312,
+          lastModified: now.subtract(const Duration(minutes: 45)),
+        ),
+        StorageItem(
+          path: '/storage/emulated/0/Documents',
+          name: 'Documents',
+          isDirectory: true,
+          size: 3 * 1024 * 1024 * 1024 + 400 * 1024 * 1024,
+          childCount: 88,
+          lastModified: now.subtract(const Duration(days: 1)),
+        ),
+        if (showHidden)
+          StorageItem(
+            path: '/storage/emulated/0/.thumbnails',
+            name: '.thumbnails',
+            isDirectory: true,
+            size: 2 * 1024 * 1024 * 1024 + 100 * 1024 * 1024,
+            childCount: 5200,
+            isSystem: true,
+            lastModified: now.subtract(const Duration(days: 5)),
+          ),
+      ],
+
+      // Nested files
+      StorageItem(
+        path: '/storage/emulated/0/Movies/Drone_4K_Flight_Cinematic.mp4',
+        name: 'Drone_4K_Flight_Cinematic.mp4',
+        isDirectory: false,
+        size: 4 * 1024 * 1024 * 1024 + 820 * 1024 * 1024,
+        extension: '.mp4',
+        lastModified: now.subtract(const Duration(days: 4)),
+      ),
+      StorageItem(
+        path: '/storage/emulated/0/Download/Full_System_Backup_2026.zip',
+        name: 'Full_System_Backup_2026.zip',
+        isDirectory: false,
+        size: 3 * 1024 * 1024 * 1024 + 450 * 1024 * 1024,
+        extension: '.zip',
+        lastModified: now.subtract(const Duration(days: 8)),
+      ),
+      StorageItem(
+        path: '/storage/emulated/0/Download/Financial_Audit_Report_2026.pdf',
+        name: 'Financial_Audit_Report_2026.pdf',
+        isDirectory: false,
+        size: 485 * 1024 * 1024,
+        extension: '.pdf',
+        lastModified: DateTime(2026, 10, 15, 14, 30),
+      ),
+      StorageItem(
+        path: '/storage/1A2B-3C4D/Documents/Financial_Audit_Report_2026.pdf',
+        name: 'Financial_Audit_Report_2026.pdf',
+        isDirectory: false,
+        size: 485 * 1024 * 1024,
+        extension: '.pdf',
+        lastModified: DateTime(2026, 10, 15, 14, 30),
+      ),
+      StorageItem(
+        path: '/storage/emulated/0/Music/Uncut_Podcast_Episode_12.wav',
+        name: 'Uncut_Podcast_Episode_12.wav',
+        isDirectory: false,
+        size: 1 * 1024 * 1024 * 1024 + 200 * 1024 * 1024,
+        extension: '.wav',
+        lastModified: now.subtract(const Duration(days: 2)),
+      ),
+      StorageItem(
+        path: '/storage/emulated/0/Download/temp_cache_blob_789.tmp',
+        name: 'temp_cache_blob_789.tmp',
+        isDirectory: false,
+        size: 420 * 1024 * 1024,
+        extension: '.tmp',
+        lastModified: now.subtract(const Duration(days: 12)),
+      ),
+      StorageItem(
+        path: '/storage/emulated/0/DCIM/Photo_RAW_DNG_0492.dng',
+        name: 'Photo_RAW_DNG_0492.dng',
+        isDirectory: false,
+        size: 85 * 1024 * 1024,
+        extension: '.dng',
+        lastModified: now.subtract(const Duration(days: 1)),
+      ),
+      StorageItem(
+        path: '/storage/emulated/0/DCIM/Photo_RAW_DNG_0492.xmp',
+        name: 'Photo_RAW_DNG_0492.xmp',
+        isDirectory: false,
+        size: 12 * 1024,
+        extension: '.xmp',
+        lastModified: now.subtract(const Duration(days: 1)),
+      ),
+    ];
+
+    return allDemo.where((item) => !_webDeletedPaths.contains(item.path)).toList();
   }
 }
 

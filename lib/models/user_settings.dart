@@ -12,21 +12,22 @@ enum BarScalingMode {
   const BarScalingMode(this.label, this.description);
 }
 
-enum SortByField {
-  size('Size'),
-  name('Name');
+enum SortColumn {
+  name('Name'),
+  date('Date'),
+  size('Size');
 
   final String label;
-  const SortByField(this.label);
+  const SortColumn(this.label);
 }
 
 class UserSettings {
   final ThemeMode themeMode;
   final BarScalingMode barScalingMode;
   final bool showHiddenFiles;
-  final bool isRecursiveFlatView;
-  final DuplicateMatchMode duplicateMatchMode;
-  final SortByField sortBy;
+  final bool includeSubfolders;
+  final DuplicateMatchCriteria duplicateCriteria;
+  final SortColumn sortColumn;
   final bool sortDescending;
   final List<String> excludedPatterns;
 
@@ -34,9 +35,9 @@ class UserSettings {
     this.themeMode = ThemeMode.dark,
     this.barScalingMode = BarScalingMode.largestItem,
     this.showHiddenFiles = false,
-    this.isRecursiveFlatView = false,
-    this.duplicateMatchMode = DuplicateMatchMode.nameAndSize,
-    this.sortBy = SortByField.size,
+    this.includeSubfolders = false,
+    this.duplicateCriteria = const DuplicateMatchCriteria(),
+    this.sortColumn = SortColumn.size,
     this.sortDescending = true,
     this.excludedPatterns = const ['.git', '.thumbnails', '.cache', 'Android/data'],
   });
@@ -45,9 +46,9 @@ class UserSettings {
     ThemeMode? themeMode,
     BarScalingMode? barScalingMode,
     bool? showHiddenFiles,
-    bool? isRecursiveFlatView,
-    DuplicateMatchMode? duplicateMatchMode,
-    SortByField? sortBy,
+    bool? includeSubfolders,
+    DuplicateMatchCriteria? duplicateCriteria,
+    SortColumn? sortColumn,
     bool? sortDescending,
     List<String>? excludedPatterns,
   }) {
@@ -55,9 +56,9 @@ class UserSettings {
       themeMode: themeMode ?? this.themeMode,
       barScalingMode: barScalingMode ?? this.barScalingMode,
       showHiddenFiles: showHiddenFiles ?? this.showHiddenFiles,
-      isRecursiveFlatView: isRecursiveFlatView ?? this.isRecursiveFlatView,
-      duplicateMatchMode: duplicateMatchMode ?? this.duplicateMatchMode,
-      sortBy: sortBy ?? this.sortBy,
+      includeSubfolders: includeSubfolders ?? this.includeSubfolders,
+      duplicateCriteria: duplicateCriteria ?? this.duplicateCriteria,
+      sortColumn: sortColumn ?? this.sortColumn,
       sortDescending: sortDescending ?? this.sortDescending,
       excludedPatterns: excludedPatterns ?? this.excludedPatterns,
     );

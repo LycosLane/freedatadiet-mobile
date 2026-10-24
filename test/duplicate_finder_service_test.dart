@@ -19,7 +19,7 @@ void main() {
       path: '/storage/Documents/report.pdf',
       name: 'report.pdf',
       isDirectory: false,
-      size: 1024 * 500, // exact same size
+      size: 1024 * 500, // exact same size & name
       lastModified: now,
     );
 
@@ -35,7 +35,7 @@ void main() {
       final items = [file1, file2, file3];
       final tagged = DuplicateFinderService.markDuplicates(
         items: items,
-        mode: DuplicateMatchMode.nameAndSize,
+        criteria: const DuplicateMatchCriteria(matchName: true, matchSize: true),
       );
 
       final dups = tagged.where((i) => i.isDuplicate).toList();
@@ -59,7 +59,7 @@ void main() {
       final items = [file1, renamedClone];
       final tagged = DuplicateFinderService.markDuplicates(
         items: items,
-        mode: DuplicateMatchMode.sizeOnly,
+        criteria: const DuplicateMatchCriteria(matchName: false, matchSize: true),
       );
 
       expect(tagged.every((i) => i.isDuplicate), true);

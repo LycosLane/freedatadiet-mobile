@@ -8,9 +8,11 @@ class SettingsService {
   static const String _keyThemeMode = 'theme_mode';
   static const String _keyBarScaling = 'bar_scaling';
   static const String _keyShowHidden = 'show_hidden';
-  static const String _keyRecursiveView = 'recursive_view';
-  static const String _keyDuplicateMode = 'duplicate_mode';
-  static const String _keySortBy = 'sort_by';
+  static const String _keyIncludeSubfolders = 'include_subfolders';
+  static const String _keyDupMatchSize = 'dup_match_size';
+  static const String _keyDupMatchName = 'dup_match_name';
+  static const String _keyDupMatchTimestamp = 'dup_match_timestamp';
+  static const String _keySortColumn = 'sort_column';
   static const String _keySortDescending = 'sort_descending';
   static const String _keyExclusions = 'excluded_patterns';
 
@@ -25,13 +27,14 @@ class SettingsService {
     final barScaling = BarScalingMode.values.elementAtOrNull(scalingIndex) ?? BarScalingMode.largestItem;
 
     final showHidden = prefs.getBool(_keyShowHidden) ?? false;
-    final isRecursive = prefs.getBool(_keyRecursiveView) ?? false;
+    final includeSubfolders = prefs.getBool(_keyIncludeSubfolders) ?? false;
 
-    final dupIndex = prefs.getInt(_keyDuplicateMode) ?? DuplicateMatchMode.nameAndSize.index;
-    final duplicateMode = DuplicateMatchMode.values.elementAtOrNull(dupIndex) ?? DuplicateMatchMode.nameAndSize;
+    final matchSize = prefs.getBool(_keyDupMatchSize) ?? true;
+    final matchName = prefs.getBool(_keyDupMatchName) ?? true;
+    final matchTimestamp = prefs.getBool(_keyDupMatchTimestamp) ?? false;
 
-    final sortByIndex = prefs.getInt(_keySortBy) ?? SortByField.size.index;
-    final sortBy = SortByField.values.elementAtOrNull(sortByIndex) ?? SortByField.size;
+    final sortColIndex = prefs.getInt(_keySortColumn) ?? SortColumn.size.index;
+    final sortColumn = SortColumn.values.elementAtOrNull(sortColIndex) ?? SortColumn.size;
 
     final sortDesc = prefs.getBool(_keySortDescending) ?? true;
 
@@ -46,9 +49,13 @@ class SettingsService {
       themeMode: themeMode,
       barScalingMode: barScaling,
       showHiddenFiles: showHidden,
-      isRecursiveFlatView: isRecursive,
-      duplicateMatchMode: duplicateMode,
-      sortBy: sortBy,
+      includeSubfolders: includeSubfolders,
+      duplicateCriteria: DuplicateMatchCriteria(
+        matchSize: matchSize,
+        matchName: matchName,
+        matchTimestamp: matchTimestamp,
+      ),
+      sortColumn: sortColumn,
       sortDescending: sortDesc,
       excludedPatterns: exclusions,
     );
@@ -60,9 +67,11 @@ class SettingsService {
     await prefs.setInt(_keyThemeMode, settings.themeMode.index);
     await prefs.setInt(_keyBarScaling, settings.barScalingMode.index);
     await prefs.setBool(_keyShowHidden, settings.showHiddenFiles);
-    await prefs.setBool(_keyRecursiveView, settings.isRecursiveFlatView);
-    await prefs.setInt(_keyDuplicateMode, settings.duplicateMatchMode.index);
-    await prefs.setInt(_keySortBy, settings.sortBy.index);
+    await prefs.setBool(_keyIncludeSubfolders, settings.includeSubfolders);
+    await prefs.setBool(_keyDupMatchSize, settings.duplicateCriteria.matchSize);
+    await prefs.setBool(_keyDupMatchName, settings.duplicateCriteria.matchName);
+    await prefs.setBool(_keyDupMatchTimestamp, settings.duplicateCriteria.matchTimestamp);
+    await prefs.setInt(_keySortColumn, settings.sortColumn.index);
     await prefs.setBool(_keySortDescending, settings.sortDescending);
     await prefs.setStringList(_keyExclusions, settings.excludedPatterns);
   }

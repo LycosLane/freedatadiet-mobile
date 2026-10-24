@@ -21,7 +21,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
   late ThemeMode _themeMode;
   late BarScalingMode _barScaling;
   late bool _showHidden;
-  late DuplicateMatchMode _duplicateMode;
+  late bool _includeSubfolders;
+  late DuplicateMatchCriteria _duplicateCriteria;
 
   @override
   void initState() {
@@ -29,7 +30,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
     _themeMode = widget.settings.themeMode;
     _barScaling = widget.settings.barScalingMode;
     _showHidden = widget.settings.showHiddenFiles;
-    _duplicateMode = widget.settings.duplicateMatchMode;
+    _includeSubfolders = widget.settings.includeSubfolders;
+    _duplicateCriteria = widget.settings.duplicateCriteria;
   }
 
   void _updateAndNotify() {
@@ -37,7 +39,8 @@ class _SettingsDialogState extends State<SettingsDialog> {
       themeMode: _themeMode,
       barScalingMode: _barScaling,
       showHiddenFiles: _showHidden,
-      duplicateMatchMode: _duplicateMode,
+      includeSubfolders: _includeSubfolders,
+      duplicateCriteria: _duplicateCriteria,
     );
     widget.onSettingsChanged(updated);
   }
@@ -76,6 +79,82 @@ class _SettingsDialogState extends State<SettingsDialog> {
               ),
               const SizedBox(height: 16),
 
+              // View Options: Include subfolders & Show hidden files
+              const Text('View & Scope Options', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              SwitchListTile(
+                title: const Text('Include subfolders', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                subtitle: const Text('Scans through all subdirectories and shows files in current level', style: TextStyle(fontSize: 11)),
+                value: _includeSubfolders,
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                onChanged: (val) {
+                  setState(() => _includeSubfolders = val);
+                  _updateAndNotify();
+                },
+              ),
+              SwitchListTile(
+                title: const Text('Show hidden files', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                subtitle: const Text('Includes dotfiles (.nomedia, .thumbnails, etc.)', style: TextStyle(fontSize: 11)),
+                value: _showHidden,
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                onChanged: (val) {
+                  setState(() => _showHidden = val);
+                  _updateAndNotify();
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // Duplicate Detection Criteria (Independent Checkboxes)
+              const Text('Duplicate Detection Criteria', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 2),
+              const Text(
+                'Select which criteria must match to flag files as duplicates:',
+                style: TextStyle(fontSize: 11),
+              ),
+              const SizedBox(height: 4),
+              CheckboxListTile(
+                title: const Text('Same file size', style: TextStyle(fontSize: 13)),
+                value: _duplicateCriteria.matchSize,
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                onChanged: (val) {
+                  setState(() {
+                    _duplicateCriteria = _duplicateCriteria.copyWith(matchSize: val ?? false);
+                  });
+                  _updateAndNotify();
+                },
+              ),
+              CheckboxListTile(
+                title: const Text('Same file name', style: TextStyle(fontSize: 13)),
+                value: _duplicateCriteria.matchName,
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                onChanged: (val) {
+                  setState(() {
+                    _duplicateCriteria = _duplicateCriteria.copyWith(matchName: val ?? false);
+                  });
+                  _updateAndNotify();
+                },
+              ),
+              CheckboxListTile(
+                title: const Text('Same modification timestamp', style: TextStyle(fontSize: 13)),
+                value: _duplicateCriteria.matchTimestamp,
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                onChanged: (val) {
+                  setState(() {
+                    _duplicateCriteria = _duplicateCriteria.copyWith(matchTimestamp: val ?? false);
+                  });
+                  _updateAndNotify();
+                },
+              ),
+              const SizedBox(height: 12),
+
               // Usage Bar Scaling Mode
               const Text('Usage Bar Scaling', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
@@ -98,45 +177,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
                     );
                   }).toList(),
                 ),
-              ),
-              const SizedBox(height: 12),
-
-              // Duplicate Detection Matching Criteria
-              const Text('Duplicate Detection Criteria', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              RadioGroup<DuplicateMatchMode>(
-                groupValue: _duplicateMode,
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() => _duplicateMode = val);
-                    _updateAndNotify();
-                  }
-                },
-                child: Column(
-                  children: DuplicateMatchMode.values.map((mode) {
-                    return RadioListTile<DuplicateMatchMode>(
-                      title: Text(mode.label, style: const TextStyle(fontSize: 13)),
-                      subtitle: Text(mode.description, style: const TextStyle(fontSize: 11)),
-                      value: mode,
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Hidden Files Toggle
-              SwitchListTile(
-                title: const Text('Show Hidden Files', style: TextStyle(fontSize: 13)),
-                subtitle: const Text('Includes dotfiles (.nomedia, .thumbnails, etc.)', style: TextStyle(fontSize: 11)),
-                value: _showHidden,
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                onChanged: (val) {
-                  setState(() => _showHidden = val);
-                  _updateAndNotify();
-                },
               ),
             ],
           ),

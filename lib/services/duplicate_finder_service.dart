@@ -1,29 +1,31 @@
 import '../models/duplicate_rule.dart';
 import '../models/storage_item.dart';
 
-/// Analyzes a list of storage items and tags duplicates based on criteria.
+/// Analyzes storage items and tags duplicates based on enabled criteria checkboxes.
 class DuplicateFinderService {
   DuplicateFinderService._();
 
-  /// Scans items and returns a map with items updated with duplicate tags.
+  /// Scans items and returns a list with items updated with duplicate flags and group IDs.
   static List<StorageItem> markDuplicates({
     required List<StorageItem> items,
-    required DuplicateMatchMode mode,
+    required DuplicateMatchCriteria criteria,
   }) {
+    if (!criteria.isEnabled) {
+      return items.map((i) => i.copyWith(isDuplicate: false, duplicateGroupId: null)).toList();
+    }
+
     // Only compare files, not directories
     final fileItems = items.where((item) => !item.isDirectory).toList();
     if (fileItems.length < 2) return items;
 
-    // Build clusters according to criteria
     final Map<String, List<StorageItem>> clusters = {};
 
     for (final item in fileItems) {
-      final key = _generateKey(item, mode);
+      final key = _buildKey(item, criteria);
       if (key == null) continue;
       clusters.putIfAbsent(key, () => []).add(item);
     }
 
-    // Keep only clusters with 2 or more files
     final Map<String, String> duplicatePathToGroupId = {};
     int groupIndex = 1;
 
@@ -37,7 +39,6 @@ class DuplicateFinderService {
       }
     }
 
-    // Update original items with duplicate flags
     return items.map((item) {
       final groupId = duplicatePathToGroupId[item.path];
       if (groupId != null) {
@@ -53,25 +54,26 @@ class DuplicateFinderService {
     }).toList();
   }
 
-  static String? _generateKey(StorageItem item, DuplicateMatchMode mode) {
-    // Ignore 0-byte empty files from duplicate groupings
-    if (item.size <= 0) return null;
+  static String? _buildKey(StorageItem item, DuplicateMatchCriteria criteria) {
+    if (item.size <= 0 && criteria.matchSize) return null;
 
-    final nameLower = item.name.toLowerCase();
-    final size = item.size;
-    final timeMs = item.lastModified?.millisecondsSinceEpoch ?? 0;
+    final parts = <String>[];
 
-    switch (mode) {
-      case DuplicateMatchMode.nameAndSize:
-        return 'NAME_SIZE:${nameLower}_$size';
-      case DuplicateMatchMode.sizeOnly:
-        return 'SIZE:$size';
-      case DuplicateMatchMode.nameOnly:
-        return 'NAME:$nameLower';
-      case DuplicateMatchMode.timestampOnly:
-        return timeMs > 0 ? 'TIME:$timeMs' : null;
-      case DuplicateMatchMode.nameSizeAndTimestamp:
-        return 'FULL:${nameLower}_${size}_$timeMs';
+    if (criteria.matchName) {
+      parts.add('NAME:${item.name.toLowerCase()}');
     }
+    if (criteria.matchSize) {
+      parts.add('SIZE:${item.size}');
+    }
+    if (criteria.matchTimestamp) {
+      final ms = item.lastModified?.millisecondsSinceEpoch ?? 0;
+      if (ms > 0) {
+        parts.add('TIME:$ms');
+      } else {
+        return null;
+      }
+    }
+
+    return parts.isEmpty ? null : parts.join('|');
   }
 }

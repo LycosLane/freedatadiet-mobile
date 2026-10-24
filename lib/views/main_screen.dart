@@ -171,16 +171,16 @@ class _MainScreenState extends State<MainScreen> {
             },
           ),
           if (_currentScope != ActiveScope.appsDiet) ...[
-            // Toggle Recursive Flat View
+            // Toggle Include Subfolders
             IconButton(
               icon: Icon(
-                widget.settings.isRecursiveFlatView ? Icons.layers_rounded : Icons.folder_open_rounded,
-                color: widget.settings.isRecursiveFlatView ? theme.colorScheme.primary : null,
+                widget.settings.includeSubfolders ? Icons.folder_copy_rounded : Icons.folder_open_rounded,
+                color: widget.settings.includeSubfolders ? theme.colorScheme.primary : null,
               ),
-              tooltip: widget.settings.isRecursiveFlatView ? 'Switch to Hierarchy View' : 'Recursive Flat View (All Files)',
+              tooltip: widget.settings.includeSubfolders ? 'Exclude subfolders (Hierarchy)' : 'Include subfolders',
               onPressed: () {
                 final updated = widget.settings.copyWith(
-                  isRecursiveFlatView: !widget.settings.isRecursiveFlatView,
+                  includeSubfolders: !widget.settings.includeSubfolders,
                 );
                 widget.onSettingsChanged(updated);
                 SettingsService.saveSettings(updated);
@@ -249,6 +249,7 @@ class _MainScreenState extends State<MainScreen> {
                     key: ValueKey('${_currentScope.name}_$_refreshCounter'),
                     rootPaths: _activeRootPaths,
                     settings: widget.settings,
+                    onSettingsChanged: widget.onSettingsChanged,
                     searchQuery: _searchQuery,
                     activeTypePreset: _activeTypePreset,
                     isSelectionMode: _isSelectionMode,
@@ -262,13 +263,18 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildScopeDropdown(bool hasExternalSD) {
+    final availableScopes = ActiveScope.values.where((s) {
+      if (s == ActiveScope.sdCard && !hasExternalSD) return false;
+      return true;
+    }).toList();
+
     return DropdownButtonHideUnderline(
       child: DropdownButton<ActiveScope>(
         value: _currentScope,
         isDense: true,
         borderRadius: BorderRadius.circular(8),
         selectedItemBuilder: (context) {
-          return ActiveScope.values.map((scope) {
+          return availableScopes.map((scope) {
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -282,42 +288,12 @@ class _MainScreenState extends State<MainScreen> {
             );
           }).toList();
         },
-        items: [
-          const DropdownMenuItem(
-            value: ActiveScope.internal,
-            child: _DropdownItem(icon: Icons.phone_android_rounded, label: 'Internal Storage'),
-          ),
-          if (hasExternalSD)
-            const DropdownMenuItem(
-              value: ActiveScope.sdCard,
-              child: _DropdownItem(icon: Icons.sd_card_rounded, label: 'External SD Card'),
-            ),
-          const DropdownMenuItem(
-            value: ActiveScope.allStorages,
-            child: _DropdownItem(icon: Icons.storage_rounded, label: 'All Storages (Cross-Drive)'),
-          ),
-          const DropdownMenuItem(
-            value: ActiveScope.appsDiet,
-            child: _DropdownItem(icon: Icons.apps_rounded, label: 'Apps & Cache Diet'),
-          ),
-          const DropdownMenuItem(enabled: false, child: Divider(height: 1)),
-          const DropdownMenuItem(
-            value: ActiveScope.images,
-            child: _DropdownItem(icon: Icons.image_rounded, label: 'Images Only'),
-          ),
-          const DropdownMenuItem(
-            value: ActiveScope.videos,
-            child: _DropdownItem(icon: Icons.video_collection_rounded, label: 'Videos Only'),
-          ),
-          const DropdownMenuItem(
-            value: ActiveScope.audio,
-            child: _DropdownItem(icon: Icons.audiotrack_rounded, label: 'Audio Only'),
-          ),
-          const DropdownMenuItem(
-            value: ActiveScope.archives,
-            child: _DropdownItem(icon: Icons.folder_zip_rounded, label: 'Archives & APKs'),
-          ),
-        ],
+        items: availableScopes.map((scope) {
+          return DropdownMenuItem<ActiveScope>(
+            value: scope,
+            child: _DropdownItem(icon: scope.icon, label: scope.label),
+          );
+        }).toList(),
         onChanged: (newScope) {
           if (newScope != null) {
             setState(() {

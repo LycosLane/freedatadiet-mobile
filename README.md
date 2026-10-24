@@ -1,5 +1,8 @@
 # FreeDataDiet Mobile
 
+[![Version: 1.1.0](https://img.shields.io/badge/version-1.1.0-blue.svg)]()
+[![Platform: Android | Linux Mobile](https://img.shields.io/badge/Platform-Android%20%7C%20Linux%20Mobile-0078D6.svg)]()
+
 > **Put your mobile storage on a diet.**  
 > A fast, lightweight disk usage and app cache analyzer for Android and Linux Mobile.  
 > *Find what is eating your phone's storage with no ads, no subscriptions, and zero nagware.*

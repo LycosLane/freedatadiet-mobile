@@ -5,7 +5,7 @@ import '../../models/storage_item.dart';
 import 'type_badge.dart';
 import 'usage_bar.dart';
 
-/// Renders a single row in the disk analyzer list.
+/// Renders a single row in the disk analyzer table.
 class StorageItemTile extends StatelessWidget {
   final StorageItem item;
   final double ratio;
@@ -14,7 +14,6 @@ class StorageItemTile extends StatelessWidget {
   final ValueChanged<bool?>? onSelectChanged;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
-  final VoidCallback? onDelete;
 
   const StorageItemTile({
     super.key,
@@ -25,7 +24,6 @@ class StorageItemTile extends StatelessWidget {
     this.onSelectChanged,
     required this.onTap,
     this.onLongPress,
-    this.onDelete,
   });
 
   @override
@@ -38,7 +36,7 @@ class StorageItemTile extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           color: isSelected
               ? (isDark
@@ -66,86 +64,78 @@ class StorageItemTile extends StatelessWidget {
                 ],
                 TypeBadge(badge: item.badge),
                 const SizedBox(width: 8),
+                // Name Column
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  flex: 5,
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              item.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
+                      Expanded(
+                        child: Text(
+                          item.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: item.isDirectory ? FontWeight.w600 : FontWeight.w400,
                           ),
-                          if (item.isDuplicate) ...[
-                            const SizedBox(width: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: AppColors.accentAmber.withValues(alpha: 0.18),
-                                borderRadius: BorderRadius.circular(3),
-                                border: Border.all(
-                                  color: AppColors.accentAmber.withValues(alpha: 0.5),
-                                  width: 0.6,
-                                ),
-                              ),
-                              child: const Text(
-                                'DUP',
-                                style: TextStyle(
-                                  color: AppColors.accentAmber,
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _buildSubtitle(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: secondaryTextColor,
                         ),
                       ),
+                      if (item.isDuplicate) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentAmber.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(
+                              color: AppColors.accentAmber.withValues(alpha: 0.5),
+                              width: 0.6,
+                            ),
+                          ),
+                          child: const Text(
+                            'DUP',
+                            style: TextStyle(
+                              color: AppColors.accentAmber,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      SizeFormatter.formatBytes(item.size),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'monospace',
-                      ),
+                // Date Column
+                SizedBox(
+                  width: 85,
+                  child: Text(
+                    _formatDateOrChildCount(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: secondaryTextColor,
+                      fontFamily: 'monospace',
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      SizeFormatter.formatPercentage(ratio),
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        color: secondaryTextColor,
-                        fontFamily: 'monospace',
-                      ),
+                  ),
+                ),
+                // Size Column
+                SizedBox(
+                  width: 75,
+                  child: Text(
+                    SizeFormatter.formatBytes(item.size),
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'monospace',
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 5),
             UsageBar(ratio: ratio, height: 3.5),
           ],
         ),
@@ -153,18 +143,14 @@ class StorageItemTile extends StatelessWidget {
     );
   }
 
-  String _buildSubtitle() {
+  String _formatDateOrChildCount() {
     if (item.isDirectory) {
       return '${item.childCount} items';
     }
-    final parts = <String>[];
-    if (item.extension.isNotEmpty) {
-      parts.add(item.extension.toUpperCase().replaceAll('.', ''));
-    }
     if (item.lastModified != null) {
-      final date = item.lastModified!;
-      parts.add('${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}');
+      final d = item.lastModified!;
+      return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
     }
-    return parts.isEmpty ? 'File' : parts.join(' • ');
+    return '';
   }
 }
