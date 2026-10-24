@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 
-/// Renders an interactive path breadcrumb trail with parent navigation.
+/// Renders an interactive path breadcrumb trail with parent navigation and bookmarking action.
 class BreadcrumbBar extends StatelessWidget {
   final String currentPath;
   final ValueChanged<String> onNavigateTo;
   final VoidCallback onNavigateUp;
   final bool canNavigateUp;
+  final bool isFavorite;
+  final bool isStartup;
+  final VoidCallback onBookmarkPressed;
 
   const BreadcrumbBar({
     super.key,
@@ -14,6 +17,9 @@ class BreadcrumbBar extends StatelessWidget {
     required this.onNavigateTo,
     required this.onNavigateUp,
     required this.canNavigateUp,
+    this.isFavorite = false,
+    this.isStartup = false,
+    required this.onBookmarkPressed,
   });
 
   @override
@@ -83,6 +89,18 @@ class BreadcrumbBar extends StatelessWidget {
                 );
               },
             ),
+          ),
+          IconButton(
+            icon: Icon(
+              isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
+              size: 20,
+              color: isFavorite ? AppColors.accentAmber : theme.hintColor,
+            ),
+            tooltip: isFavorite ? 'Bookmarked (Tap to manage)' : 'Bookmark this folder / Set as startup',
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            onPressed: onBookmarkPressed,
           ),
         ],
       ),

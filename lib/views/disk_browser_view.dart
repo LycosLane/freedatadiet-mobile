@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import '../core/theme/app_colors.dart';
 import '../core/utils/size_formatter.dart';
+import '../models/favorite_folder.dart';
 import '../models/storage_item.dart';
 import '../models/user_settings.dart';
+import '../services/duplicate_finder_service.dart';
 import '../services/settings_service.dart';
 import '../services/storage_scanner_service.dart';
 import 'widgets/batch_delete_bar.dart';
@@ -14,7 +16,8 @@ import 'widgets/column_header_row.dart';
 import 'widgets/delete_confirm_dialog.dart';
 import 'widgets/storage_item_tile.dart';
 
-/// Interactive disk usage explorer and cleaner with table header sorting and progressive folder scanning.
+/// Interactive disk usage explorer and cleaner with table header sorting, progressive folder scanning,
+/// fluid pinch-to-zoom scaling, bookmark management, and duplicate clustering.
 class DiskBrowserView extends StatefulWidget {
   final List<String> rootPaths;
   final UserSettings settings;
@@ -48,10 +51,14 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
   final Set<String> _selectedPaths = {};
   StreamSubscription<FolderSizeUpdate>? _folderScanSub;
 
+  double _basePinchScale = 1.0;
+
   @override
   void initState() {
     super.initState();
-    _currentPath = widget.rootPaths.isNotEmpty ? widget.rootPaths.first : '/storage/emulated/0';
+    // Default to configured startup path or first root path
+    final initialPath = widget.rootPaths.isNotEmpty ? widget.rootPaths.first : widget.settings.defaultStartupPath;
+    _currentPath = initialPath.isNotEmpty ? initialPath : '/storage/emulated/0';
     _scanCurrentPath();
   }
 
@@ -64,7 +71,6 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
   @override
   void didUpdateWidget(DiskBrowserView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Compare rootPaths using listEquals so selection mode toggling doesn't trigger a rescan!
     final rootPathsChanged = !listEquals(widget.rootPaths, oldWidget.rootPaths);
     final includeSubfoldersChanged = widget.settings.includeSubfolders != oldWidget.settings.includeSubfolders;
     final showHiddenChanged = widget.settings.showHiddenFiles != oldWidget.settings.showHiddenFiles;
@@ -72,13 +78,21 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
         widget.settings.duplicateCriteria.matchName != oldWidget.settings.duplicateCriteria.matchName ||
         widget.settings.duplicateCriteria.matchTimestamp != oldWidget.settings.duplicateCriteria.matchTimestamp;
 
-    if (rootPathsChanged || includeSubfoldersChanged || showHiddenChanged || criteriaChanged) {
-      if (widget.rootPaths.isNotEmpty &&
-          !widget.rootPaths.contains(_currentPath) &&
-          !_currentPath.startsWith(widget.rootPaths.first)) {
+    if (rootPathsChanged) {
+      if (widget.rootPaths.isNotEmpty) {
         _currentPath = widget.rootPaths.first;
       }
       _scanCurrentPath();
+    } else if (includeSubfoldersChanged || showHiddenChanged) {
+      _scanCurrentPath();
+    } else if (criteriaChanged) {
+      // Re-evaluate duplicates on existing items
+      setState(() {
+        _items = DuplicateFinderService.markDuplicates(
+          items: _items,
+          criteria: widget.settings.duplicateCriteria,
+        );
+      });
     }
   }
 
@@ -113,8 +127,14 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
       excludedPatterns: widget.settings.excludedPatterns,
     );
 
+    // Tag duplicates in shallow directory view
+    final itemsWithDuplicates = DuplicateFinderService.markDuplicates(
+      items: immediateItems,
+      criteria: widget.settings.duplicateCriteria,
+    );
+
     setState(() {
-      _items = immediateItems;
+      _items = itemsWithDuplicates;
       _isLoading = false;
       _selectedPaths.clear();
     });
@@ -142,33 +162,56 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
   }
 
   List<StorageItem> get _visibleItems {
+    final combinedSearch = widget.searchQuery.isNotEmpty
+        ? widget.searchQuery
+        : widget.settings.customFilterText.trim();
+
     var list = _items.where((item) {
       // 1. Text Search / Custom extension filter
-      if (widget.searchQuery.isNotEmpty) {
-        final query = widget.searchQuery.toLowerCase();
+      if (combinedSearch.isNotEmpty) {
+        final query = combinedSearch.toLowerCase();
         final matchesName = item.name.toLowerCase().contains(query);
         final matchesExt = item.extension.toLowerCase().contains(query);
         if (!matchesName && !matchesExt) return false;
       }
 
-      // 2. Type Presets filter
-      if (widget.activeTypePreset != null) {
-        if (item.isDirectory) return false;
-        final ext = item.extension.toLowerCase();
-        switch (widget.activeTypePreset) {
-          case 'images':
-            if (!const ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic', '.dng', '.raw'].contains(ext)) return false;
-            break;
-          case 'videos':
-            if (!const ['.mp4', '.mkv', '.mov', '.avi', '.webm', '.3gp', '.ts'].contains(ext)) return false;
-            break;
-          case 'audio':
-            if (!const ['.mp3', '.flac', '.m4a', '.wav', '.ogg', '.aac', '.opus'].contains(ext)) return false;
-            break;
-          case 'archives':
-            if (!const ['.zip', '.rar', '.7z', '.tar', '.gz', '.apk', '.obb'].contains(ext)) return false;
-            break;
+      // 2. Show duplicates only
+      if (widget.settings.showDuplicatesOnly) {
+        if (item.isDirectory || !item.isDuplicate) return false;
+      }
+
+      // 3. Unified Type Filters (Images, Videos, Audio, Documents, Archives)
+      if (widget.settings.hasActiveTypeFilters) {
+        if (item.isDirectory) {
+          // If subfolders are not included, keep folders visible so user can navigate into them!
+          return !widget.settings.includeSubfolders;
         }
+
+        final ext = item.extension.toLowerCase();
+        bool matchesAnyType = false;
+
+        if (widget.settings.filterImages &&
+            const ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.dng', '.raw', '.gif', '.bmp'].contains(ext)) {
+          matchesAnyType = true;
+        }
+        if (widget.settings.filterVideos &&
+            const ['.mp4', '.mkv', '.mov', '.avi', '.webm', '.3gp', '.ts', '.m4v'].contains(ext)) {
+          matchesAnyType = true;
+        }
+        if (widget.settings.filterAudio &&
+            const ['.mp3', '.flac', '.m4a', '.wav', '.ogg', '.opus', '.aac', '.wma'].contains(ext)) {
+          matchesAnyType = true;
+        }
+        if (widget.settings.filterDocuments &&
+            const ['.pdf', '.doc', '.docx', '.txt', '.epub', '.xlsx', '.xls', '.pptx', '.csv', '.md'].contains(ext)) {
+          matchesAnyType = true;
+        }
+        if (widget.settings.filterArchives &&
+            const ['.zip', '.rar', '.7z', '.tar', '.gz', '.apk', '.obb', '.bz2'].contains(ext)) {
+          matchesAnyType = true;
+        }
+
+        if (!matchesAnyType) return false;
       }
 
       return true;
@@ -293,6 +336,97 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
     );
   }
 
+  void _showBookmarkDialog() {
+    final isFav = widget.settings.favoriteFolders.any((f) => f.path == _currentPath);
+    final isStartup = widget.settings.defaultStartupPath == _currentPath;
+    final folderName = _currentPath.split('/').where((s) => s.isNotEmpty).lastOrNull ?? 'Folder';
+    final nameController = TextEditingController(text: folderName);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.folder_special_rounded, color: AppColors.accentAmber, size: 22),
+            const SizedBox(width: 8),
+            const Text('Folder Bookmark', style: TextStyle(fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _currentPath,
+              style: TextStyle(fontSize: 11.5, color: Theme.of(ctx).hintColor, fontFamily: 'monospace'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: 'Bookmark Label',
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                isStartup ? Icons.star_rounded : Icons.star_outline_rounded,
+                color: isStartup ? AppColors.accentAmber : Theme.of(ctx).hintColor,
+              ),
+              title: const Text('Default Startup Folder', style: TextStyle(fontSize: 13)),
+              subtitle: Text(
+                isStartup ? 'Opens automatically on launch' : 'Tap button below to set',
+                style: const TextStyle(fontSize: 11),
+              ),
+              trailing: isStartup
+                  ? const Icon(Icons.check, color: AppColors.accentGreen, size: 18)
+                  : FilledButton.tonal(
+                      onPressed: () {
+                        final updated = widget.settings.copyWith(defaultStartupPath: _currentPath);
+                        widget.onSettingsChanged(updated);
+                        SettingsService.saveSettings(updated);
+                        Navigator.of(ctx).pop();
+                      },
+                      style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
+                      child: const Text('Set as Startup', style: TextStyle(fontSize: 11)),
+                    ),
+            ),
+          ],
+        ),
+        actions: [
+          if (isFav)
+            TextButton(
+              onPressed: () {
+                final updatedFavs = widget.settings.favoriteFolders.where((f) => f.path != _currentPath).toList();
+                final updated = widget.settings.copyWith(favoriteFolders: updatedFavs);
+                widget.onSettingsChanged(updated);
+                SettingsService.saveSettings(updated);
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('Remove Bookmark', style: TextStyle(color: AppColors.accentRose)),
+            ),
+          FilledButton(
+            onPressed: () {
+              final label = nameController.text.trim().isEmpty ? folderName : nameController.text.trim();
+              final updatedFavs = List<FavoriteFolder>.from(widget.settings.favoriteFolders);
+              if (!isFav) {
+                updatedFavs.add(FavoriteFolder(name: label, path: _currentPath));
+              }
+              final updated = widget.settings.copyWith(favoriteFolders: updatedFavs);
+              widget.onSettingsChanged(updated);
+              SettingsService.saveSettings(updated);
+              Navigator.of(ctx).pop();
+            },
+            child: Text(isFav ? 'Save' : 'Add to Favorites'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -305,6 +439,9 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
         _currentPath != '/' &&
         (widget.rootPaths.isEmpty || !widget.rootPaths.contains(_currentPath));
 
+    final isFav = widget.settings.favoriteFolders.any((f) => f.path == _currentPath);
+    final isStartup = widget.settings.defaultStartupPath == _currentPath;
+
     return Column(
       children: [
         // Breadcrumb Trail (when not including subfolders)
@@ -312,6 +449,9 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
           BreadcrumbBar(
             currentPath: _currentPath,
             canNavigateUp: canNavigateUp,
+            isFavorite: isFav,
+            isStartup: isStartup,
+            onBookmarkPressed: _showBookmarkDialog,
             onNavigateUp: () {
               final parent = _currentPath.substring(0, _currentPath.lastIndexOf('/'));
               setState(() {
@@ -358,44 +498,90 @@ class _DiskBrowserViewState extends State<DiskBrowserView> {
           activeColumn: widget.settings.sortColumn,
           isDescending: widget.settings.sortDescending,
           isSelectionMode: widget.isSelectionMode,
+          textScale: widget.settings.textScale,
           onSortChanged: _onSortChanged,
         ),
 
-        // Items Table
+        // Items Table with Pinch-to-Zoom
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : visible.isEmpty
                   ? Center(
-                      child: Text(
-                        'No files found',
-                        style: TextStyle(color: theme.hintColor),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.folder_open_rounded, size: 48, color: theme.hintColor.withValues(alpha: 0.4)),
+                          const SizedBox(height: 8),
+                          Text(
+                            'No matching files found',
+                            style: TextStyle(color: theme.hintColor, fontSize: 13),
+                          ),
+                          if (widget.settings.hasActiveTypeFilters || widget.settings.showDuplicatesOnly) ...[
+                            const SizedBox(height: 6),
+                            TextButton.icon(
+                              icon: const Icon(Icons.filter_alt_off_rounded, size: 16),
+                              label: const Text('Reset Active Filters'),
+                              onPressed: () {
+                                final updated = widget.settings.copyWith(
+                                  filterImages: false,
+                                  filterVideos: false,
+                                  filterAudio: false,
+                                  filterDocuments: false,
+                                  filterArchives: false,
+                                  showDuplicatesOnly: false,
+                                  customFilterText: '',
+                                );
+                                widget.onSettingsChanged(updated);
+                                SettingsService.saveSettings(updated);
+                              },
+                            ),
+                          ],
+                        ],
                       ),
                     )
-                  : RefreshIndicator(
-                      onRefresh: _scanCurrentPath,
-                      child: ListView.builder(
-                        itemCount: visible.length,
-                        itemBuilder: (context, index) {
-                          final item = visible[index];
-                          final ratio = _computeRatio(item);
-                          final isSelected = _selectedPaths.contains(item.path);
+                  : GestureDetector(
+                      onScaleStart: (details) {
+                        _basePinchScale = widget.settings.textScale;
+                      },
+                      onScaleUpdate: (details) {
+                        if (details.pointerCount >= 2) {
+                          final newScale = (_basePinchScale * details.scale).clamp(0.8, 1.6);
+                          if ((newScale - widget.settings.textScale).abs() > 0.02) {
+                            final updated = widget.settings.copyWith(textScale: newScale);
+                            widget.onSettingsChanged(updated);
+                          }
+                        }
+                      },
+                      onScaleEnd: (details) {
+                        SettingsService.saveSettings(widget.settings);
+                      },
+                      child: RefreshIndicator(
+                        onRefresh: _scanCurrentPath,
+                        child: ListView.builder(
+                          itemCount: visible.length,
+                          itemBuilder: (context, index) {
+                            final item = visible[index];
+                            final ratio = _computeRatio(item);
+                            final isSelected = _selectedPaths.contains(item.path);
 
-                          return StorageItemTile(
-                            item: item,
-                            ratio: ratio,
-                            isSelectionMode: widget.isSelectionMode,
-                            isSelected: isSelected,
-                            onSelectChanged: (_) => _toggleSelection(item.path),
-                            onTap: () => _onItemTap(item),
-                            onLongPress: () {
-                              if (!widget.isSelectionMode) {
-                                widget.onSelectionModeChanged(true);
-                                _toggleSelection(item.path);
-                              }
-                            },
-                          );
-                        },
+                            return StorageItemTile(
+                              item: item,
+                              ratio: ratio,
+                              isSelectionMode: widget.isSelectionMode,
+                              isSelected: isSelected,
+                              textScale: widget.settings.textScale,
+                              onSelectChanged: (_) => _toggleSelection(item.path),
+                              onTap: () => _onItemTap(item),
+                              onLongPress: () {
+                                if (!widget.isSelectionMode) {
+                                  widget.onSelectionModeChanged(true);
+                                  _toggleSelection(item.path);
+                                }
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ),
         ),

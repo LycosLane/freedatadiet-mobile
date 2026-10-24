@@ -1,6 +1,6 @@
 # FreeDataDiet Mobile
 
-[![Version: 1.2.0](https://img.shields.io/badge/version-1.2.0-blue.svg)]()
+[![Version: 1.3.0](https://img.shields.io/badge/version-1.3.0-blue.svg)]()
 [![Platform: Android | Linux Mobile](https://img.shields.io/badge/Platform-Android%20%7C%20Linux%20Mobile-0078D6.svg)]()
 
 > **Put your mobile storage on a diet.**  

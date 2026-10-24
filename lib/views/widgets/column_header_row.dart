@@ -8,6 +8,7 @@ class ColumnHeaderRow extends StatelessWidget {
   final SortColumn activeColumn;
   final bool isDescending;
   final bool isSelectionMode;
+  final double textScale;
   final Function(SortColumn column, bool descending) onSortChanged;
 
   const ColumnHeaderRow({
@@ -15,18 +16,14 @@ class ColumnHeaderRow extends StatelessWidget {
     required this.activeColumn,
     required this.isDescending,
     required this.isSelectionMode,
+    this.textScale = 1.0,
     required this.onSortChanged,
   });
 
   void _handleColumnClick(SortColumn column) {
     if (activeColumn == column) {
-      // Invert current direction
       onSortChanged(column, !isDescending);
     } else {
-      // First click defaults per column:
-      // Name: A-Z (ascending = false)
-      // Date: Newest first (descending = true)
-      // Size: Largest first (descending = true)
       final defaultDesc = column != SortColumn.name;
       onSortChanged(column, defaultDesc);
     }
@@ -39,7 +36,7 @@ class ColumnHeaderRow extends StatelessWidget {
     final headerColor = isDark ? AppColors.darkCard : AppColors.lightCard;
 
     return Container(
-      height: 34,
+      height: 34 * textScale.clamp(0.9, 1.4),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: headerColor,
@@ -49,7 +46,7 @@ class ColumnHeaderRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (isSelectionMode) const SizedBox(width: 32),
+          if (isSelectionMode) SizedBox(width: 32 * textScale),
           // Name Column Header
           Expanded(
             flex: 5,
@@ -62,7 +59,7 @@ class ColumnHeaderRow extends StatelessWidget {
           ),
           // Date Column Header
           SizedBox(
-            width: 85,
+            width: 85 * textScale.clamp(0.9, 1.3),
             child: _buildHeaderCell(
               column: SortColumn.date,
               label: 'Date',
@@ -72,7 +69,7 @@ class ColumnHeaderRow extends StatelessWidget {
           ),
           // Size Column Header
           SizedBox(
-            width: 75,
+            width: 78 * textScale.clamp(0.9, 1.3),
             child: _buildHeaderCell(
               column: SortColumn.size,
               label: 'Size',
@@ -101,14 +98,14 @@ class ColumnHeaderRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(4),
       child: Container(
         alignment: alignment,
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               label,
               style: TextStyle(
-                fontSize: 11.5,
+                fontSize: 11.5 * textScale,
                 fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
                 color: isActive ? activeTextColor : defaultTextColor,
               ),
@@ -117,13 +114,13 @@ class ColumnHeaderRow extends StatelessWidget {
             if (isActive)
               Icon(
                 isDescending ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
-                size: 13,
+                size: 13 * textScale,
                 color: activeTextColor,
               )
             else
               Icon(
                 Icons.unfold_more_rounded,
-                size: 12,
+                size: 12 * textScale,
                 color: defaultTextColor.withValues(alpha: 0.5),
               ),
           ],

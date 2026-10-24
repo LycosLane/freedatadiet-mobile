@@ -6,24 +6,38 @@ import '../services/platform_bridge_service.dart';
 import '../services/settings_service.dart';
 import 'app_diet_view.dart';
 import 'disk_browser_view.dart';
-import 'settings_dialog.dart';
+import 'widgets/unified_menu_sheet.dart';
 
-enum ActiveScope {
-  internal('Internal Storage', Icons.phone_android_rounded),
-  sdCard('External SD Card', Icons.sd_card_rounded),
-  allStorages('All Storages (Internal + SD)', Icons.storage_rounded),
-  appsDiet('Apps & Cache Diet', Icons.apps_rounded),
-  images('Images Only', Icons.image_rounded),
-  videos('Videos Only', Icons.video_collection_rounded),
-  audio('Audio Only', Icons.audiotrack_rounded),
-  archives('Archives & APKs', Icons.folder_zip_rounded);
-
+/// A location item presented in the top bar scan sources dropdown.
+class LocationItem {
+  final String id;
   final String label;
   final IconData icon;
-  const ActiveScope(this.label, this.icon);
+  final String path;
+  final bool isAppsDiet;
+  final bool isVolume;
+  final bool isFavorite;
+
+  const LocationItem({
+    required this.id,
+    required this.label,
+    required this.icon,
+    this.path = '',
+    this.isAppsDiet = false,
+    this.isVolume = false,
+    this.isFavorite = false,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LocationItem && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
-/// Main application screen with unified scope selector, search/custom filter, and content views.
+/// Main application screen with scan location selector, unified filter menu, and content views.
 class MainScreen extends StatefulWidget {
   final UserSettings settings;
   final ValueChanged<UserSettings> onSettingsChanged;
@@ -39,14 +53,10 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  ActiveScope _currentScope = ActiveScope.internal;
+  String _selectedLocationId = 'internal';
   List<StorageVolume> _volumes = [];
   bool _hasStoragePermission = true;
   bool _hasUsageStatsPermission = true;
-
-  bool _isSearching = false;
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
 
   bool _isSelectionMode = false;
   int _refreshCounter = 0;
@@ -55,12 +65,6 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _checkPermissionsAndVolumes();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   Future<void> _checkPermissionsAndVolumes() async {
@@ -72,50 +76,109 @@ class _MainScreenState extends State<MainScreen> {
         _hasStoragePermission = permissions['hasStoragePermission'] ?? true;
         _hasUsageStatsPermission = permissions['hasUsageStatsPermission'] ?? true;
         _volumes = volumes;
+
+        // If a default startup folder is configured, find matching location
+        final startup = widget.settings.defaultStartupPath;
+        if (startup.isNotEmpty && startup != '/storage/emulated/0') {
+          final favMatch = widget.settings.favoriteFolders.where((f) => f.path == startup).firstOrNull;
+          if (favMatch != null) {
+            _selectedLocationId = 'fav_${favMatch.path}';
+          }
+        }
       });
     }
   }
 
-  List<String> get _activeRootPaths {
+  List<LocationItem> _buildAvailableLocations() {
     final primaryVolume = _volumes.where((v) => v.isPrimary).firstOrNull ?? _volumes.firstOrNull;
-    final externalVolume = _volumes.where((v) => !v.isPrimary).firstOrNull;
+    final externalVolumes = _volumes.where((v) => !v.isPrimary).toList();
 
-    switch (_currentScope) {
-      case ActiveScope.internal:
-        return [primaryVolume?.path ?? '/storage/emulated/0'];
-      case ActiveScope.sdCard:
-        return externalVolume != null ? [externalVolume.path] : [primaryVolume?.path ?? '/storage/emulated/0'];
-      case ActiveScope.allStorages:
-        return _volumes.map((v) => v.path).toList();
-      case ActiveScope.images:
-      case ActiveScope.videos:
-      case ActiveScope.audio:
-      case ActiveScope.archives:
-        return _volumes.map((v) => v.path).toList();
-      case ActiveScope.appsDiet:
-        return [];
+    final list = <LocationItem>[
+      // 1. Storage Volumes
+      LocationItem(
+        id: 'internal',
+        label: 'Internal Storage',
+        icon: Icons.phone_android_rounded,
+        path: primaryVolume?.path ?? '/storage/emulated/0',
+        isVolume: true,
+      ),
+    ];
+
+    for (final ext in externalVolumes) {
+      list.add(LocationItem(
+        id: 'sd_${ext.path}',
+        label: ext.description.isNotEmpty ? ext.description : 'External (${ext.path.split('/').last})',
+        icon: Icons.sd_card_rounded,
+        path: ext.path,
+        isVolume: true,
+      ));
     }
+
+    if (externalVolumes.isNotEmpty) {
+      list.add(const LocationItem(
+        id: 'all_storages',
+        label: 'All Storages (Merged)',
+        icon: Icons.storage_rounded,
+        path: '',
+        isVolume: true,
+      ));
+    }
+
+    // 2. Favorite Folders & Quick Access
+    for (final fav in widget.settings.favoriteFolders) {
+      final isStartup = widget.settings.defaultStartupPath == fav.path;
+      final IconData favIcon;
+      final nameLower = fav.name.toLowerCase();
+      if (nameLower.contains('download')) {
+        favIcon = Icons.download_rounded;
+      } else if (nameLower.contains('document')) {
+        favIcon = Icons.description_rounded;
+      } else if (nameLower.contains('dcim') || nameLower.contains('camera')) {
+        favIcon = Icons.photo_camera_rounded;
+      } else {
+        favIcon = Icons.folder_special_rounded;
+      }
+
+      list.add(LocationItem(
+        id: 'fav_${fav.path}',
+        label: '${fav.name}${isStartup ? " ★" : ""}',
+        icon: favIcon,
+        path: fav.path,
+        isFavorite: true,
+      ));
+    }
+
+    // 3. Apps & Cache Diet View
+    list.add(const LocationItem(
+      id: 'apps_diet',
+      label: 'Apps & Cache Diet',
+      icon: Icons.apps_rounded,
+      isAppsDiet: true,
+    ));
+
+    return list;
   }
 
-  String? get _activeTypePreset {
-    switch (_currentScope) {
-      case ActiveScope.images:
-        return 'images';
-      case ActiveScope.videos:
-        return 'videos';
-      case ActiveScope.audio:
-        return 'audio';
-      case ActiveScope.archives:
-        return 'archives';
-      default:
-        return null;
+  List<String> get _activeRootPaths {
+    final locations = _buildAvailableLocations();
+    final current = locations.where((l) => l.id == _selectedLocationId).firstOrNull ?? locations.first;
+
+    if (current.id == 'all_storages') {
+      return _volumes.map((v) => v.path).toList();
     }
+    if (current.path.isNotEmpty) {
+      return [current.path];
+    }
+    return ['/storage/emulated/0'];
   }
 
-  void _openSettingsDialog() {
-    showDialog(
+  void _openUnifiedMenu() {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => SettingsDialog(
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => UnifiedMenuSheet(
         settings: widget.settings,
         onSettingsChanged: (updated) {
           widget.onSettingsChanged(updated);
@@ -128,78 +191,55 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasExternalSD = _volumes.any((v) => !v.isPrimary);
+    final locations = _buildAvailableLocations();
+
+    final currentLoc = locations.where((l) => l.id == _selectedLocationId).firstOrNull ?? locations.first;
+    final isAppsDiet = currentLoc.isAppsDiet;
+
+    final hasActiveFilters = widget.settings.hasActiveTypeFilters ||
+        widget.settings.showDuplicatesOnly ||
+        widget.settings.customFilterText.trim().isNotEmpty ||
+        widget.settings.includeSubfolders;
 
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 12,
-        title: _isSearching
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                style: const TextStyle(fontSize: 14),
-                decoration: InputDecoration(
-                  hintText: 'Filter name, .pdf, .xmp, *.sidecar...',
-                  hintStyle: TextStyle(fontSize: 13, color: theme.hintColor),
-                  border: InputBorder.none,
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() => _searchQuery = '');
-                    },
-                  ),
-                ),
-                onChanged: (val) => setState(() => _searchQuery = val),
-              )
-            : _buildScopeDropdown(hasExternalSD),
+        title: _buildLocationDropdown(locations, currentLoc),
         actions: [
-          IconButton(
-            icon: Icon(_isSearching ? Icons.close_rounded : Icons.search_rounded),
-            tooltip: _isSearching ? 'Close Search' : 'Search / Custom Filter',
-            onPressed: () {
-              setState(() {
-                if (_isSearching) {
-                  _isSearching = false;
-                  _searchController.clear();
-                  _searchQuery = '';
-                } else {
-                  _isSearching = true;
-                }
-              });
-            },
-          ),
-          if (_currentScope != ActiveScope.appsDiet) ...[
-            // Toggle Include Subfolders
+          if (!isAppsDiet) ...[
+            // Select for Deletion Mode (Edit mode toggle)
             IconButton(
               icon: Icon(
-                widget.settings.includeSubfolders ? Icons.folder_copy_rounded : Icons.folder_open_rounded,
-                color: widget.settings.includeSubfolders ? theme.colorScheme.primary : null,
+                _isSelectionMode ? Icons.close_rounded : Icons.checklist_rounded,
+                color: _isSelectionMode ? theme.colorScheme.primary : null,
               ),
-              tooltip: widget.settings.includeSubfolders ? 'Exclude subfolders (Hierarchy)' : 'Include subfolders',
-              onPressed: () {
-                final updated = widget.settings.copyWith(
-                  includeSubfolders: !widget.settings.includeSubfolders,
-                );
-                widget.onSettingsChanged(updated);
-                SettingsService.saveSettings(updated);
-              },
-            ),
-            // Select for Deletion Mode
-            IconButton(
-              icon: Icon(
-                _isSelectionMode ? Icons.check_circle_rounded : Icons.checklist_rounded,
-                color: _isSelectionMode ? AppColors.accentRose : null,
-              ),
-              tooltip: _isSelectionMode ? 'Exit Selection Mode' : 'Select for Deletion',
+              tooltip: _isSelectionMode ? 'Cancel selection (exit edit mode)' : 'Select for deletion',
               onPressed: () => setState(() => _isSelectionMode = !_isSelectionMode),
             ),
           ],
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Settings',
-            onPressed: _openSettingsDialog,
+          // Unified Filters & Preferences Menu Button
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.tune_rounded),
+                tooltip: 'Filters & Preferences',
+                onPressed: _openUnifiedMenu,
+              ),
+              if (hasActiveFilters)
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -237,7 +277,7 @@ class _MainScreenState extends State<MainScreen> {
 
           // Main View Content
           Expanded(
-            child: _currentScope == ActiveScope.appsDiet
+            child: isAppsDiet
                 ? AppDietView(
                     hasUsageStatsPermission: _hasUsageStatsPermission,
                     onRequestPermission: () async {
@@ -246,12 +286,11 @@ class _MainScreenState extends State<MainScreen> {
                     },
                   )
                 : DiskBrowserView(
-                    key: ValueKey('${_currentScope.name}_$_refreshCounter'),
+                    key: ValueKey('${currentLoc.id}_$_refreshCounter'),
                     rootPaths: _activeRootPaths,
                     settings: widget.settings,
                     onSettingsChanged: widget.onSettingsChanged,
-                    searchQuery: _searchQuery,
-                    activeTypePreset: _activeTypePreset,
+                    searchQuery: '',
                     isSelectionMode: _isSelectionMode,
                     onSelectionModeChanged: (mode) => setState(() => _isSelectionMode = mode),
                     onRescanRequested: () => setState(() => _refreshCounter++),
@@ -262,65 +301,69 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildScopeDropdown(bool hasExternalSD) {
-    final availableScopes = ActiveScope.values.where((s) {
-      if (s == ActiveScope.sdCard && !hasExternalSD) return false;
-      return true;
-    }).toList();
+  Widget _buildLocationDropdown(List<LocationItem> locations, LocationItem currentLoc) {
+    final theme = Theme.of(context);
 
     return DropdownButtonHideUnderline(
-      child: DropdownButton<ActiveScope>(
-        value: _currentScope,
+      child: DropdownButton<String>(
+        value: currentLoc.id,
         isDense: true,
         borderRadius: BorderRadius.circular(8),
         selectedItemBuilder: (context) {
-          return availableScopes.map((scope) {
+          return locations.map((loc) {
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(scope.icon, size: 18, color: Theme.of(context).colorScheme.primary),
+                Icon(loc.icon, size: 19, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
-                Text(
-                  scope.label,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 190),
+                  child: Text(
+                    loc.label,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             );
           }).toList();
         },
-        items: availableScopes.map((scope) {
-          return DropdownMenuItem<ActiveScope>(
-            value: scope,
-            child: _DropdownItem(icon: scope.icon, label: scope.label),
+        items: locations.map((loc) {
+          return DropdownMenuItem<String>(
+            value: loc.id,
+            child: Row(
+              children: [
+                Icon(
+                  loc.icon,
+                  size: 18,
+                  color: loc.isFavorite
+                      ? AppColors.accentAmber
+                      : (loc.isAppsDiet ? theme.colorScheme.secondary : null),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    loc.label,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: loc.id == currentLoc.id ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           );
         }).toList(),
-        onChanged: (newScope) {
-          if (newScope != null) {
+        onChanged: (newId) {
+          if (newId != null && newId != _selectedLocationId) {
             setState(() {
-              _currentScope = newScope;
+              _selectedLocationId = newId;
               _isSelectionMode = false;
             });
           }
         },
       ),
-    );
-  }
-}
-
-class _DropdownItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _DropdownItem({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 18),
-        const SizedBox(width: 10),
-        Text(label, style: const TextStyle(fontSize: 13.5)),
-      ],
     );
   }
 }

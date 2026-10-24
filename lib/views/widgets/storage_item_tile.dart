@@ -11,6 +11,7 @@ class StorageItemTile extends StatelessWidget {
   final double ratio;
   final bool isSelectionMode;
   final bool isSelected;
+  final double textScale;
   final ValueChanged<bool?>? onSelectChanged;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
@@ -21,6 +22,7 @@ class StorageItemTile extends StatelessWidget {
     required this.ratio,
     required this.isSelectionMode,
     required this.isSelected,
+    this.textScale = 1.0,
     this.onSelectChanged,
     required this.onTap,
     this.onLongPress,
@@ -32,11 +34,15 @@ class StorageItemTile extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final secondaryTextColor = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
+    final dateColWidth = 85.0 * textScale.clamp(0.9, 1.3);
+    final sizeColWidth = 78.0 * textScale.clamp(0.9, 1.3);
+    final verticalPad = (7.0 * textScale.clamp(0.8, 1.4)).roundToDouble();
+
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: verticalPad),
         decoration: BoxDecoration(
           color: isSelected
               ? (isDark
@@ -75,7 +81,7 @@ class StorageItemTile extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: (13.0 * textScale).clamp(9.0, 22.0),
                             fontWeight: item.isDirectory ? FontWeight.w600 : FontWeight.w400,
                           ),
                         ),
@@ -92,8 +98,8 @@ class StorageItemTile extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               SizedBox(
-                                width: 8,
-                                height: 8,
+                                width: (8.0 * textScale).clamp(7.0, 12.0),
+                                height: (8.0 * textScale).clamp(7.0, 12.0),
                                 child: CircularProgressIndicator(
                                   strokeWidth: 1.2,
                                   color: theme.colorScheme.primary,
@@ -103,7 +109,7 @@ class StorageItemTile extends StatelessWidget {
                               Text(
                                 'scanning',
                                 style: TextStyle(
-                                  fontSize: 9,
+                                  fontSize: (9.0 * textScale).clamp(7.5, 13.0),
                                   color: theme.colorScheme.primary,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -120,15 +126,17 @@ class StorageItemTile extends StatelessWidget {
                             color: AppColors.accentAmber.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(3),
                             border: Border.all(
-                              color: AppColors.accentAmber.withValues(alpha: 0.5),
-                              width: 0.6,
+                              color: AppColors.accentAmber.withValues(alpha: 0.6),
+                              width: 0.7,
                             ),
                           ),
-                          child: const Text(
-                            'DUP',
+                          child: Text(
+                            item.duplicateGroupId != null
+                                ? 'DUP #${item.duplicateGroupId!.replaceFirst('dup_', '')}'
+                                : 'DUP',
                             style: TextStyle(
                               color: AppColors.accentAmber,
-                              fontSize: 9.5,
+                              fontSize: (9.5 * textScale).clamp(7.5, 13.0),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -140,13 +148,13 @@ class StorageItemTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 // Date Column
                 SizedBox(
-                  width: 85,
+                  width: dateColWidth,
                   child: Text(
                     _formatDateOrChildCount(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: (11.0 * textScale).clamp(8.0, 17.0),
                       color: secondaryTextColor,
                       fontFamily: 'monospace',
                     ),
@@ -154,7 +162,7 @@ class StorageItemTile extends StatelessWidget {
                 ),
                 // Size Column
                 SizedBox(
-                  width: 75,
+                  width: sizeColWidth,
                   child: item.isScanning
                       ? Align(
                           alignment: Alignment.centerRight,
@@ -170,8 +178,8 @@ class StorageItemTile extends StatelessWidget {
                       : Text(
                           SizeFormatter.formatBytes(item.size),
                           textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            fontSize: 12.5,
+                          style: TextStyle(
+                            fontSize: (12.5 * textScale).clamp(9.0, 19.0),
                             fontWeight: FontWeight.w600,
                             fontFamily: 'monospace',
                           ),
@@ -180,7 +188,10 @@ class StorageItemTile extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 5),
-            UsageBar(ratio: item.isScanning ? 0.05 : ratio, height: 3.5),
+            UsageBar(
+              ratio: item.isScanning ? 0.05 : ratio,
+              height: (3.5 * textScale.clamp(0.9, 1.3)).clamp(3.0, 6.0),
+            ),
           ],
         ),
       ),
