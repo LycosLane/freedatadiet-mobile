@@ -6,7 +6,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../core/theme/app_colors.dart';
 
-/// In-app video preview widget with playback controls, progress scrubbing, and audio toggle.
+/// In-app video preview widget with robust lifecycle, audio toggle, and scrub controls.
 class VideoPlayerItemView extends StatefulWidget {
   final String path;
   final bool isCurrent;
@@ -23,38 +23,63 @@ class VideoPlayerItemView extends StatefulWidget {
   State<VideoPlayerItemView> createState() => _VideoPlayerItemViewState();
 }
 
-class _VideoPlayerItemViewState extends State<VideoPlayerItemView> {
+class _VideoPlayerItemViewState extends State<VideoPlayerItemView>
+    with WidgetsBindingObserver {
   VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _hasError = false;
   String _errorMessage = '';
   bool _isMuted = false;
+  bool _isDisposed = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initPlayer();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      _controller?.pause();
+    }
   }
 
   Future<void> _initPlayer() async {
     try {
       final file = File(widget.path);
       if (!await file.exists()) {
-        if (mounted) {
-          setState(() {
-            _hasError = true;
-            _errorMessage = 'File does not exist';
-          });
-        }
+        if (!mounted || _isDisposed) return;
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'File does not exist';
+        });
         return;
       }
+
+      if (await file.length() == 0) {
+        if (!mounted || _isDisposed) return;
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Video file is empty (0 bytes)';
+        });
+        return;
+      }
+
+      if (!mounted || _isDisposed) return;
 
       final controller = VideoPlayerController.file(file);
       _controller = controller;
 
       await controller.initialize();
-      if (!mounted) {
-        controller.dispose();
+
+      if (!mounted || _isDisposed) {
+        if (_controller == controller) {
+          _controller = null;
+          controller.dispose();
+        }
         return;
       }
 
@@ -64,7 +89,11 @@ class _VideoPlayerItemViewState extends State<VideoPlayerItemView> {
         _isInitialized = true;
       });
     } catch (e) {
-      if (mounted) {
+      final failedController = _controller;
+      _controller = null;
+      failedController?.dispose();
+
+      if (mounted && !_isDisposed) {
         setState(() {
           _hasError = true;
           _errorMessage = e.toString();
@@ -74,7 +103,7 @@ class _VideoPlayerItemViewState extends State<VideoPlayerItemView> {
   }
 
   void _onControllerUpdate() {
-    if (mounted) {
+    if (mounted && !_isDisposed) {
       setState(() {});
     }
   }
@@ -82,16 +111,32 @@ class _VideoPlayerItemViewState extends State<VideoPlayerItemView> {
   @override
   void didUpdateWidget(covariant VideoPlayerItemView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Auto-pause when user swipes away to another slide
+    if (oldWidget.path != widget.path) {
+      _cleanupController();
+      _isInitialized = false;
+      _hasError = false;
+      _errorMessage = '';
+      _initPlayer();
+      return;
+    }
+
     if (oldWidget.isCurrent && !widget.isCurrent) {
       _controller?.pause();
     }
   }
 
+  void _cleanupController() {
+    _controller?.removeListener(_onControllerUpdate);
+    final c = _controller;
+    _controller = null;
+    c?.dispose();
+  }
+
   @override
   void dispose() {
-    _controller?.removeListener(_onControllerUpdate);
-    _controller?.dispose();
+    _isDisposed = true;
+    WidgetsBinding.instance.removeObserver(this);
+    _cleanupController();
     super.dispose();
   }
 
@@ -102,7 +147,6 @@ class _VideoPlayerItemViewState extends State<VideoPlayerItemView> {
     if (controller.value.isPlaying) {
       controller.pause();
     } else {
-      // Loop back if at the end
       if (controller.value.position >= controller.value.duration) {
         controller.seekTo(Duration.zero);
       }
@@ -117,6 +161,33 @@ class _VideoPlayerItemViewState extends State<VideoPlayerItemView> {
       _isMuted = !_isMuted;
       controller.setVolume(_isMuted ? 0.0 : 1.0);
     });
+  }
+
+  Future<void> _openExternal() async {
+    try {
+      final res = await OpenFilex.open(widget.path);
+      if (res.type != ResultType.done && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              res.type == ResultType.noAppToOpen
+                  ? 'No application installed to open this file'
+                  : 'Could not open file: ${res.message}',
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to open file: $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   String _formatDuration(Duration duration) {
@@ -173,7 +244,7 @@ class _VideoPlayerItemViewState extends State<VideoPlayerItemView> {
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.white24),
                 ),
-                onPressed: () => OpenFilex.open(widget.path),
+                onPressed: _openExternal,
               ),
             ],
           ),
@@ -190,6 +261,9 @@ class _VideoPlayerItemViewState extends State<VideoPlayerItemView> {
 
     final value = controller.value;
     final isPlaying = value.isPlaying;
+    final aspect = value.aspectRatio > 0 && value.aspectRatio.isFinite
+        ? value.aspectRatio
+        : 16 / 9;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -197,15 +271,12 @@ class _VideoPlayerItemViewState extends State<VideoPlayerItemView> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Centered Aspect-Ratio Video
           Center(
             child: AspectRatio(
-              aspectRatio: value.aspectRatio > 0 ? value.aspectRatio : 16 / 9,
+              aspectRatio: aspect,
               child: VideoPlayer(controller),
             ),
           ),
-
-          // Big Play/Pause Toggle Indicator in Center
           AnimatedOpacity(
             opacity: isPlaying ? 0.0 : 1.0,
             duration: const Duration(milliseconds: 200),
@@ -226,71 +297,76 @@ class _VideoPlayerItemViewState extends State<VideoPlayerItemView> {
               ),
             ),
           ),
-
-          // Bottom Video Scrub & Time Controls
           Positioned(
             left: 12,
             right: 12,
             bottom: MediaQuery.of(context).padding.bottom + 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.75),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white12, width: 1),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                          color: Colors.white,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {}, // Absorb non-scrub taps to prevent chrome toggle
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.75),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white12, width: 1),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            isPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            color: Colors.white,
+                          ),
+                          onPressed: _togglePlayPause,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                         ),
-                        onPressed: _togglePlayPause,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${_formatDuration(value.position)} / ${_formatDuration(value.duration)}',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontFeatures: [FontFeature.tabularFigures()],
+                        const SizedBox(width: 8),
+                        Text(
+                          '${_formatDuration(value.position)} / ${_formatDuration(value.duration)}',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
                         ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: Icon(
-                          _isMuted
-                              ? Icons.volume_off_rounded
-                              : Icons.volume_up_rounded,
-                          color: Colors.white,
-                          size: 20,
+                        const Spacer(),
+                        IconButton(
+                          icon: Icon(
+                            _isMuted
+                                ? Icons.volume_off_rounded
+                                : Icons.volume_up_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          onPressed: _toggleMute,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                         ),
-                        onPressed: _toggleMute,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  VideoProgressIndicator(
-                    controller,
-                    allowScrubbing: true,
-                    colors: VideoProgressColors(
-                      playedColor: AppColors.brandCyan,
-                      bufferedColor: Colors.white24,
-                      backgroundColor: Colors.white10,
+                      ],
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    VideoProgressIndicator(
+                      controller,
+                      allowScrubbing: true,
+                      colors: VideoProgressColors(
+                        playedColor: AppColors.brandCyan,
+                        bufferedColor: Colors.white24,
+                        backgroundColor: Colors.white10,
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

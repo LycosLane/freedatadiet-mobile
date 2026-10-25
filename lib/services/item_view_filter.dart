@@ -12,6 +12,7 @@ class ItemViewFilter {
     '.jpeg',
     '.png',
     '.webp',
+    '.avif',
     '.heic',
     '.dng',
     '.raw',
@@ -66,16 +67,20 @@ class ItemViewFilter {
 
   /// Returns true if the file path has an image extension.
   static bool isImage(String path) {
-    final dot = path.lastIndexOf('.');
-    if (dot == -1) return false;
-    return imageExts.contains(path.substring(dot).toLowerCase());
+    final slash = path.lastIndexOf('/');
+    final name = slash != -1 ? path.substring(slash + 1) : path;
+    final dot = name.lastIndexOf('.');
+    if (dot <= 0) return false;
+    return imageExts.contains(name.substring(dot).toLowerCase());
   }
 
   /// Returns true if the file path has a video extension.
   static bool isVideo(String path) {
-    final dot = path.lastIndexOf('.');
-    if (dot == -1) return false;
-    return videoExts.contains(path.substring(dot).toLowerCase());
+    final slash = path.lastIndexOf('/');
+    final name = slash != -1 ? path.substring(slash + 1) : path;
+    final dot = name.lastIndexOf('.');
+    if (dot <= 0) return false;
+    return videoExts.contains(name.substring(dot).toLowerCase());
   }
 
   /// Returns true if the file path is an image or video file.

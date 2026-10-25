@@ -100,6 +100,7 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
               final item = widget.items[index];
               if (ItemViewFilter.isVideo(item.path)) {
                 return VideoPlayerItemView(
+                  key: ValueKey(item.path),
                   path: item.path,
                   isCurrent: index == _currentIndex,
                   onToggleChrome: _toggleChrome,
@@ -230,7 +231,32 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
                       color: Colors.white,
                     ),
                     tooltip: 'Open with external app',
-                    onPressed: () => OpenFilex.open(currentItem.path),
+                    onPressed: () async {
+                      try {
+                        final res = await OpenFilex.open(currentItem.path);
+                        if (res.type != ResultType.done && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                res.type == ResultType.noAppToOpen
+                                    ? 'No application installed to open this file'
+                                    : 'Could not open file: ${res.message}',
+                              ),
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to open file: $e'),
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                        }
+                      }
+                    },
                   ),
                 ],
               ),
