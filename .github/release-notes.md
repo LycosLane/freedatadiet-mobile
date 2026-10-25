@@ -1,6 +1,18 @@
-Initial public release of FreeDataDiet Mobile, the official Android companion to FreeDataDiet.
+FreeDataDiet Mobile 1.6.5 introduces the official White Fedora brand identity, adaptive launcher icons, and refined obsidian theme palette.
 
-## Highlights
+## What is New in 1.6.5
+
+### Official White Fedora Identity
+* **Universal Symbol**: Adopted the White Fedora mark across Android mobile and desktop releases.
+* **Modular Ribbon**: Dual-segment Cyan (`#00B4FF`) and Amber (`#FFB020`) band representing active data health and storage diet optimization.
+* **Full Brand Guidelines**: Published comprehensive specifications in `BRANDING.md` covering vector geometry, safe zones, and palettes.
+
+### Adaptive Launcher Icons
+* **Pixel Safe Zones**: Vector mark fits within the 72dp Android adaptive icon boundary. Prevents clipping on circle, squircle, and custom launcher masks.
+* **Obsidian Palette**: App background and launcher background aligned to obsidian `#101216`.
+* **Crisp Light Mode**: Refined clean bright mode palette (`#F8FAFC`) with full brand accent harmony.
+
+## Core Features
 
 ### Disk Explorer
 * Visual size bars show heavy folders immediately.
@@ -22,10 +34,10 @@ Initial public release of FreeDataDiet Mobile, the official Android companion to
 * Folder Assistant detects sibling duplicates in the same directory.
 * Two-pass duplicate verification with size pre-filtering and background SHA-256 hash checks.
 
-### Safety and Performance
+### Safety and Privacy
 * Background isolate directory listing ensures smooth 120 FPS performance even on slow SD cards or USB OTG drives.
 * Automatic recovery for settings and one-tap restore to factory defaults.
-* 100% private: no internet access requested, no ads, no tracking, and no subscriptions.
+* 100% private: no internet access requested, zero ads, zero tracking, and no subscriptions.
 
 ## Installation
 * Download `freedatadiet-mobile.apk` below.
