@@ -97,6 +97,7 @@ flutter run
 ## Related Projects
 
 * **[FreeDataDiet (Desktop)](https://github.com/LycosLane/freedatadiet):** Fast disk space analyzer for Windows, Linux, and macOS written in Rust and egui.
+* **[Brand Guidelines](BRANDING.md):** Official White Fedora mark specifications, adaptive icon guidelines, and color palette.
 
 ---
 

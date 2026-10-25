@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="112" fill="#101216"/>
+  
+  <g transform="translate(256, 256) scale(1.26) translate(-256, -260) rotate(-6 256 256)">
+    <!-- Crown -->
+    <path d="M 162 252
+             L 186 162
+             L 208 150
+             L 256 196
+             L 304 150
+             L 326 162
+             L 350 252
+             Q 256 264 162 252 Z" fill="#FFFFFF"/>
+    <path d="M 220 154 L 256 165 L 292 154 L 256 186 Z" fill="#FFFFFF"/>
+
+    <!-- Modular Two-Tone Hatband (Cyan Active Storage + Amber Diet Slice) -->
+    <path d="M 159 264
+             Q 232 273 300 269
+             L 305 305
+             Q 234 310 151 300 Z" fill="#00B4FF"/>
+    <path d="M 315 268
+             Q 334 266 353 264
+             L 361 300
+             Q 342 303 320 305 Z" fill="#FFB020"/>
+
+    <!-- Brim -->
+    <path d="M 86 312
+             L 150 312
+             Q 256 326 362 312
+             L 426 312
+             C 394 362, 330 384, 256 384
+             C 182 384, 118 362, 86 312 Z" fill="#FFFFFF"/>
+  </g>
+</svg>

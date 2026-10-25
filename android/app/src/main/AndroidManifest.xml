@@ -20,7 +20,8 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="FreeDataDiet"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
         <activity
             android:name=".MainActivity"
             android:exported="true"
