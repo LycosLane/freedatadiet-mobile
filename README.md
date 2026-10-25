@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/icons/app_icon.png" width="128" alt="FreeDataDiet White Fedora Icon" />
+</p>
+
 # FreeDataDiet Mobile
 
 [![Version: 1.6.5](https://img.shields.io/badge/version-1.6.5-blue.svg)](https://github.com/LycosLane/freedatadiet-mobile)
