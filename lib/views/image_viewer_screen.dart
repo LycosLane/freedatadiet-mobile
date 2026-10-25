@@ -5,9 +5,12 @@ import 'package:open_filex/open_filex.dart';
 
 import '../core/utils/size_formatter.dart';
 import '../models/storage_item.dart';
+import '../services/item_view_filter.dart';
+import 'widgets/video_player_item_view.dart';
 
-/// Lightweight in-app image viewer using Flutter's hardware-accelerated image pipeline.
-/// Supports swiping between images in the current folder, pinch-to-zoom, and fullscreen view.
+/// Lightweight in-app media viewer supporting images and video playback.
+/// Supports swiping between media in the current folder, pinch-to-zoom for photos,
+/// and video playback controls.
 class ImageViewerScreen extends StatefulWidget {
   final List<StorageItem> items;
   final int initialIndex;
@@ -95,6 +98,14 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
             },
             itemBuilder: (context, index) {
               final item = widget.items[index];
+              if (ItemViewFilter.isVideo(item.path)) {
+                return VideoPlayerItemView(
+                  path: item.path,
+                  isCurrent: index == _currentIndex,
+                  onToggleChrome: _toggleChrome,
+                );
+              }
+
               return GestureDetector(
                 onTap: _toggleChrome,
                 child: InteractiveViewer(

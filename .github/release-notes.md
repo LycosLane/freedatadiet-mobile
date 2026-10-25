@@ -1,44 +1,24 @@
-FreeDataDiet Mobile 1.6.5 introduces the official White Fedora brand identity, adaptive launcher icons, and refined obsidian theme palette.
+FreeDataDiet Mobile 1.6.6 introduces hardware-accelerated in-app video playback and hardened system intent handling for documents and PDFs.
 
-## What is New in 1.6.5
+## What is New in 1.6.6
 
-### Official White Fedora Identity
-* **Universal Symbol**: Adopted the White Fedora mark across Android mobile and desktop releases.
-* **Modular Ribbon**: Dual-segment Cyan (`#00B4FF`) and Amber (`#FFB020`) band representing active data health and storage diet optimization.
-* **Full Brand Guidelines**: Published comprehensive specifications in `BRANDING.md` covering vector geometry, safe zones, and palettes.
+### In-App Video Playback
+* **Direct Preview**: Tap any video file (`.mp4`, `.mkv`, `.webm`, `.mov`, `.3gp`, `.avi`) to preview and play it directly inside the app.
+* **Playback Controls**: Play, pause, scrub timeline, and mute audio.
+* **Unified Media Swipe**: Seamlessly swipe between photos and videos within the same folder.
+* **Auto-Pause**: Playback automatically pauses when swiping away to another media file.
 
-### Adaptive Launcher Icons
-* **Pixel Safe Zones**: Vector mark fits within the 72dp Android adaptive icon boundary. Prevents clipping on circle, squircle, and custom launcher masks.
-* **Obsidian Palette**: App background and launcher background aligned to obsidian `#101216`.
-* **Crisp Light Mode**: Refined clean bright mode palette (`#F8FAFC`) with full brand accent harmony.
+### Document & PDF System View
+* **Native Intent Handling**: PDFs and office documents open directly in your device's preferred reader (Google Drive PDF Viewer, Samsung Notes, Mi Doc Viewer, etc.).
+* **Universal Compatibility**: Works across Google Pixel, Samsung Galaxy, Xiaomi, Motorola, and other Android devices.
+* **Informative Feedback**: Clear on-screen notification if no compatible viewer app is installed on the system.
 
 ## Core Features
-
-### Disk Explorer
-* Visual size bars show heavy folders immediately.
-* Tap column headers to sort by file size, modification date, or file name.
-* Long file names wrap onto multiple lines when zooming in so nothing is cut off.
-* Touch and drag down the screen to select multiple files at once.
-* Core Android system folders and application directories are protected against deletion.
-
-### App Diet
-* Lists installed apps sorted by cache size from largest to smallest.
-* Tap any app to jump directly into Android system settings and clear its cache.
-* Uses native Android system statistics without fake boosters or battery tools.
-
-### Filters and Duplicate Cleaner
-* Filter the view by file category (images, videos, audio, documents, archives) or custom extensions.
-* Built-in full-screen image viewer with pinch-to-zoom to preview pictures before deletion.
-* Recursive subfolder grouping shows duplicate copies side by side.
-* Use "Keep 1st" to select redundant copies with one tap.
-* Folder Assistant detects sibling duplicates in the same directory.
-* Two-pass duplicate verification with size pre-filtering and background SHA-256 hash checks.
-
-### Safety and Privacy
-* Background isolate directory listing ensures smooth 120 FPS performance even on slow SD cards or USB OTG drives.
-* Automatic recovery for settings and one-tap restore to factory defaults.
-* 100% private: no internet access requested, zero ads, zero tracking, and no subscriptions.
+* **Disk Explorer**: Visual size bars, fast column sorting, pinch-to-zoom multiline filenames, and drag-to-select.
+* **App Diet**: Identify heavy app caches and clear them via native system settings.
+* **Duplicate Cleaner**: Recursive subfolder grouping and two-pass SHA-256 duplicate detection.
+* **100% Private**: Zero internet permissions requested, zero ads, zero analytics, and zero tracking.
 
 ## Installation
 * Download `freedatadiet-mobile.apk` below.
-* Open the APK on your phone and confirm installation.
+* Open the APK on your phone to update.

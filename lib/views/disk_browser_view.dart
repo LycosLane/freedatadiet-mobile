@@ -498,27 +498,53 @@ class DiskBrowserViewState extends State<DiskBrowserView> {
     _navigateTo(parent);
   }
 
+  Future<void> _openExternalFile(StorageItem item) async {
+    try {
+      final result = await OpenFilex.open(item.path);
+      if (result.type != ResultType.done && mounted) {
+        final message = result.type == ResultType.noAppToOpen
+            ? 'No application installed to open this file'
+            : 'Could not open file: ${result.message}';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to open file: $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
   void _onItemTap(StorageItem item) {
     if (widget.isSelectionMode) {
       _toggleSelection(item.path);
     } else if (item.isDirectory) {
       _navigateTo(item.path);
-    } else if (ItemViewFilter.isImage(item.path)) {
-      final visibleImages = _visibleItems()
-          .where((i) => !i.isDirectory && ItemViewFilter.isImage(i.path))
+    } else if (ItemViewFilter.isMedia(item.path)) {
+      final visibleMedia = _visibleItems()
+          .where((i) => !i.isDirectory && ItemViewFilter.isMedia(i.path))
           .toList();
-      final imgIndex = visibleImages.indexWhere((i) => i.path == item.path);
-      if (imgIndex != -1) {
+      final mediaIndex = visibleMedia.indexWhere((i) => i.path == item.path);
+      if (mediaIndex != -1) {
         ImageViewerScreen.show(
           context: context,
-          items: visibleImages,
-          initialIndex: imgIndex,
+          items: visibleMedia,
+          initialIndex: mediaIndex,
         );
       } else {
-        OpenFilex.open(item.path);
+        _openExternalFile(item);
       }
     } else {
-      OpenFilex.open(item.path);
+      _openExternalFile(item);
     }
   }
 

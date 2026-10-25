@@ -25,6 +25,33 @@ void main() {
     });
   });
 
+  group('ItemViewFilter.isVideo', () {
+    test('identifies common video extensions case-insensitively', () {
+      expect(ItemViewFilter.isVideo('/movies/vacation.mp4'), isTrue);
+      expect(ItemViewFilter.isVideo('/movies/vacation.MP4'), isTrue);
+      expect(ItemViewFilter.isVideo('/movies/film.mkv'), isTrue);
+      expect(ItemViewFilter.isVideo('/movies/clip.webm'), isTrue);
+      expect(ItemViewFilter.isVideo('/movies/quicktime.mov'), isTrue);
+      expect(ItemViewFilter.isVideo('/movies/legacy.avi'), isTrue);
+      expect(ItemViewFilter.isVideo('/movies/mobile.3gp'), isTrue);
+    });
+
+    test('returns false for non-video files', () {
+      expect(ItemViewFilter.isVideo('/photos/vacation.jpg'), isFalse);
+      expect(ItemViewFilter.isVideo('/docs/notes.pdf'), isFalse);
+      expect(ItemViewFilter.isVideo('/audio/song.mp3'), isFalse);
+    });
+  });
+
+  group('ItemViewFilter.isMedia', () {
+    test('identifies both images and videos as media', () {
+      expect(ItemViewFilter.isMedia('/photos/pic.png'), isTrue);
+      expect(ItemViewFilter.isMedia('/movies/clip.mp4'), isTrue);
+      expect(ItemViewFilter.isMedia('/docs/notes.pdf'), isFalse);
+      expect(ItemViewFilter.isMedia('/archives/archive.zip'), isFalse);
+    });
+  });
+
   group('ImageViewerScreen Widget Tests', () {
     testWidgets('renders empty state when no items provided', (tester) async {
       await tester.pumpWidget(
