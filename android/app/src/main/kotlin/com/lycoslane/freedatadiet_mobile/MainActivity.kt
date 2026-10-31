@@ -2,6 +2,7 @@ package com.lycoslane.freedatadiet_mobile
 
 import android.app.AppOpsManager
 import android.app.usage.StorageStatsManager
+import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -17,6 +18,8 @@ import android.os.Process
 import android.os.storage.StorageManager
 import android.os.storage.StorageVolume
 import android.provider.Settings
+import android.webkit.MimeTypeMap
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -113,6 +116,21 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     } else {
                         result.error("INVALID_ARG", "Package name is required", null)
+                    }
+                }
+                "openFile" -> {
+                    val filePath = call.argument<String>("filePath")
+                    if (filePath == null) {
+                        result.error("INVALID_ARG", "filePath is required", null)
+                    } else {
+                        try {
+                            openFileWithSystemIntent(filePath)
+                            result.success(true)
+                        } catch (e: ActivityNotFoundException) {
+                            result.error("NO_APP", "No application installed to open this file", null)
+                        } catch (e: Exception) {
+                            result.error("OPEN_ERROR", e.localizedMessage ?: "Failed to open file", null)
+                        }
                     }
                 }
                 else -> result.notImplemented()
@@ -412,5 +430,73 @@ class MainActivity : FlutterActivity() {
             }
             startActivity(fallback)
         }
+    }
+
+    private fun openFileWithSystemIntent(filePath: String) {
+        val file = File(filePath)
+        if (!file.exists()) {
+            throw IllegalArgumentException("File does not exist: $filePath")
+        }
+
+        val extension = file.extension.lowercase()
+        val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: when (extension) {
+            "apk" -> "application/vnd.android.package-archive"
+            "pdf" -> "application/pdf"
+            "mp3" -> "audio/mpeg"
+            "m4a", "m4b", "aac" -> "audio/mp4"
+            "flac" -> "audio/flac"
+            "wav" -> "audio/wav"
+            "ogg", "opus" -> "audio/ogg"
+            "wma" -> "audio/x-ms-wma"
+            "mp4", "m4v" -> "video/mp4"
+            "mkv" -> "video/x-matroska"
+            "webm" -> "video/webm"
+            "mov" -> "video/quicktime"
+            "avi" -> "video/x-msvideo"
+            "3gp" -> "video/3gpp"
+            "ts" -> "video/mp2t"
+            "jpg", "jpeg" -> "image/jpeg"
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "avif" -> "image/avif"
+            "gif" -> "image/gif"
+            "bmp" -> "image/bmp"
+            "svg" -> "image/svg+xml"
+            "heic" -> "image/heic"
+            "dng" -> "image/x-adobe-dng"
+            "zip" -> "application/zip"
+            "rar" -> "application/x-rar-compressed"
+            "7z" -> "application/x-7z-compressed"
+            "tar" -> "application/x-tar"
+            "gz" -> "application/gzip"
+            "json" -> "application/json"
+            "txt", "log", "md" -> "text/plain"
+            "csv" -> "text/csv"
+            "html", "htm" -> "text/html"
+            "epub" -> "application/epub+zip"
+            "doc" -> "application/msword"
+            "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            "xls" -> "application/vnd.ms-excel"
+            "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            "ppt" -> "application/vnd.ms-powerpoint"
+            "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            else -> "*/*"
+        }
+
+        val uri: Uri = try {
+            FileProvider.getUriForFile(this, "${packageName}.fileProvider", file)
+        } catch (_: Exception) {
+            val builder = android.os.StrictMode.VmPolicy.Builder()
+            android.os.StrictMode.setVmPolicy(builder.build())
+            Uri.fromFile(file)
+        }
+
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, mimeType)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        startActivity(intent)
     }
 }

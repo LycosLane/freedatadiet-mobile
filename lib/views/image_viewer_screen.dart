@@ -1,11 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
+import 'package:flutter/services.dart' show PlatformException;
 
 import '../core/utils/size_formatter.dart';
 import '../models/storage_item.dart';
 import '../services/item_view_filter.dart';
+import '../services/platform_bridge_service.dart';
 import 'widgets/video_player_item_view.dart';
 
 /// Lightweight in-app media viewer supporting images and video playback.
@@ -233,15 +234,15 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
                     tooltip: 'Open with external app',
                     onPressed: () async {
                       try {
-                        final res = await OpenFilex.open(currentItem.path);
-                        if (res.type != ResultType.done && context.mounted) {
+                        await PlatformBridgeService.openFile(currentItem.path);
+                      } on PlatformException catch (e) {
+                        if (context.mounted) {
+                          final message = e.code == 'NO_APP'
+                              ? 'No application installed to open this file'
+                              : (e.message ?? 'Could not open file');
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(
-                                res.type == ResultType.noAppToOpen
-                                    ? 'No application installed to open this file'
-                                    : 'Could not open file: ${res.message}',
-                              ),
+                              content: Text(message),
                               duration: const Duration(seconds: 3),
                             ),
                           );

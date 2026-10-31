@@ -3,7 +3,7 @@ import 'dart:io' show Directory;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
+import 'package:flutter/services.dart' show PlatformException;
 
 import '../core/utils/path_rules.dart';
 import '../core/utils/size_formatter.dart';
@@ -14,6 +14,7 @@ import '../services/deep_scan.dart';
 import '../services/duplicate_finder_service.dart';
 import '../services/folder_size_scan.dart';
 import '../services/item_view_filter.dart';
+import '../services/platform_bridge_service.dart';
 import '../services/settings_service.dart';
 import '../services/storage_scanner_service.dart';
 import 'widgets/batch_delete_bar.dart';
@@ -500,11 +501,12 @@ class DiskBrowserViewState extends State<DiskBrowserView> {
 
   Future<void> _openExternalFile(StorageItem item) async {
     try {
-      final result = await OpenFilex.open(item.path);
-      if (result.type != ResultType.done && mounted) {
-        final message = result.type == ResultType.noAppToOpen
+      await PlatformBridgeService.openFile(item.path);
+    } on PlatformException catch (e) {
+      if (mounted) {
+        final message = e.code == 'NO_APP'
             ? 'No application installed to open this file'
-            : 'Could not open file: ${result.message}';
+            : (e.message ?? 'Could not open file');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),

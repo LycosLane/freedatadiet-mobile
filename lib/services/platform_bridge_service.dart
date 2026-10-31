@@ -161,4 +161,10 @@ class PlatformBridgeService {
       } catch (_) {}
     }
   }
+
+  /// Opens a file with the system default viewer/handler via Android Intent.
+  static Future<void> openFile(String filePath) async {
+    if (!Platform.isAndroid) return;
+    await _channel.invokeMethod('openFile', {'filePath': filePath});
+  }
 }

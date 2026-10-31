@@ -1,10 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:video_player/video_player.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../services/platform_bridge_service.dart';
 
 /// In-app video preview widget with robust lifecycle, audio toggle, and scrub controls.
 class VideoPlayerItemView extends StatefulWidget {
@@ -165,15 +166,15 @@ class _VideoPlayerItemViewState extends State<VideoPlayerItemView>
 
   Future<void> _openExternal() async {
     try {
-      final res = await OpenFilex.open(widget.path);
-      if (res.type != ResultType.done && mounted) {
+      await PlatformBridgeService.openFile(widget.path);
+    } on PlatformException catch (e) {
+      if (mounted) {
+        final message = e.code == 'NO_APP'
+            ? 'No application installed to open this file'
+            : (e.message ?? 'Could not open file');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              res.type == ResultType.noAppToOpen
-                  ? 'No application installed to open this file'
-                  : 'Could not open file: ${res.message}',
-            ),
+            content: Text(message),
             duration: const Duration(seconds: 3),
           ),
         );

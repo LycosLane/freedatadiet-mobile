@@ -42,7 +42,7 @@ void main() {
     );
   });
 
-  test('file provider overrides open_filex with secure filepaths', () {
+  test('file provider configures secure filepaths', () {
     expect(manifest.contains('@xml/filepaths'), true);
     final filepathsXml = File('android/app/src/main/res/xml/filepaths.xml')
         .readAsStringSync();
