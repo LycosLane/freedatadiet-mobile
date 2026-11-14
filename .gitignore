@@ -52,3 +52,7 @@ app.*.map.json
 *.keystore
 android/key.properties
 *.b64.txt
+
+# Local documentation & private guides (never pushed)
+.local_docs/
+BRANDING.md
