@@ -1,12 +1,11 @@
-FreeDataDiet Mobile 1.6.7 resolves file opening issues for PDF documents and audio files by replacing third-party intent dispatching with a native, permissionless Android Jetpack FileProvider implementation.
+FreeDataDiet Mobile 1.6.10 updates the app branding to the new segmented treemap icon design with full-size adaptive Android launcher icons and locks the CI build environment to Flutter 3.47.7.
 
-## What is New in 1.6.7
+## What is New in 1.6.10
 
-### Native FileProvider & Intent Handling
-* **Fixed PDF Opening**: Resolved the `Couldn't find meta-data for provider with authority` error by switching to our official Jetpack FileProvider authority (`com.lycoslane.freedatadiet_mobile.fileProvider`).
-* **Fixed Audio File Opening**: Resolved the `Permission denied: android.permission.READ_MEDIA_AUDIO` error when opening audiobooks or music files. The native implementation passes secure content URIs directly with `FLAG_GRANT_READ_URI_PERMISSION`, completely avoiding redundant scoped-storage permission prompts.
-* **Zero Third-Party Intent Overhead**: Replaced the `open_filex` dependency with a robust, lightweight Kotlin platform bridge.
-* **Secondary Storage Fallback**: Added safe fallback handling for documents and media on external micro-SD cards and USB OTG drives.
+### Updated Branding & Adaptive Icons
+* **Segmented Treemap Logo**: Updated the app icon, SVG vector master, and Play Store graphic to match the new FreeDataDiet segmented treemap identity.
+* **Full-Size Android Adaptive Icons**: Separated the full-bleed treemap background layer from the full-size White Fedora foreground across all densities (`mdpi` through `xxxhdpi`) so the hat keeps its bold size inside circle, squircle, and rounded-square launcher masks.
+* **Reproducible CI Builds**: Pinned Flutter 3.47.7 in the GitHub Actions release workflow to prevent breaking changes from unpinned channel updates.
 
 ## Core Features
 * **Disk Explorer**: Visual size bars, fast column sorting, pinch-to-zoom multiline filenames, and drag-to-select.
