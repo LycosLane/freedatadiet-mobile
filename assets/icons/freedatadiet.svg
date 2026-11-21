@@ -90,7 +90,7 @@
   </g>
 
   <!-- Signature White Fedora with Seamless Cutout Border -->
-  <g transform="translate(256, 256) scale(1.22) translate(-256, -264) rotate(-6 256 256)">
+  <g transform="translate(256, 248) scale(1.22) translate(-256, -264) rotate(-6 256 256)">
     <g stroke="#101216" stroke-width="22" stroke-linejoin="round">
       <path d="M 162 252 L 186 162 L 208 150 L 256 196 L 304 150 L 326 162 L 350 252 Q 256 264 162 252 Z" fill="#101216"/>
       <path d="M 220 154 L 256 165 L 292 154 L 256 186 Z" fill="#101216"/>
