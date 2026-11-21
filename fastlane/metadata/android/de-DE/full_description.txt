@@ -1,0 +1,9 @@
+FreeDataDiet ist ein schneller, privater Speicher- und App-Cache-Analyzer fuer Android. Finde grosse Dateien, leere ueberfuellte App-Caches und entferne exakte Duplikate komplett ohne Werbung und Tracking.
+
+Funktionen:
+- Disk Explorer: Uebersichtliche Groessenbalken, Spaltensortierung, Pinch-to-Zoom fuer Dateinamen und Mehrfachauswahl per Wischgeste.
+- App-Diaet: Zeigt installierte Apps sortiert nach Gesamtgroesse, App-Daten und Cache mit direktem Sprung zu den Systemeinstellungen.
+- Duplikat-Finder: Rekursive Unterordner-Gruppierung und zweistufige SHA-256-Erkennung fuer exakte Duplikate.
+- Integrierte Medienvorschau: Hardware-beschleunigte Videowiedergabe und Wischgesten fuer Fotos und Videos sowie sicheres Oeffnen von Dokumenten und Audio ueber Android FileProvider.
+- Externe Speicher: Unterstuetzt internen Speicher, microSD-Karten und USB-OTG-Laufwerke.
+- 100% Privat: Fordert keine Internet-Berechtigung an, enthaelt keine Werbung und sammelt keinerlei Telemetrie.

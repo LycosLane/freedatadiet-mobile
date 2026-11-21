@@ -1,0 +1,3 @@
+- App-Icon und Android Adaptive Launcher Icons auf das neue Treemap-Design mit grossem White-Fedora-Logo aktualisiert.
+- Drittanbieter-Datei-Opener durch native Android FileProvider-Bruecke fuer PDF- und Audiodateien ersetzt.
+- Integrierte Videovorschau mit einheitlicher Foto/Video-Wischgalerie ergaenzt.

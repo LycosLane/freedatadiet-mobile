@@ -1,0 +1,1 @@
+Finde Speicherfresser, leere App-Caches und entferne doppelte Dateien.

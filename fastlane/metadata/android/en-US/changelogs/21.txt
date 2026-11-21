@@ -1,0 +1,3 @@
+- Updated app icon and Android adaptive launcher icons to the segmented treemap design with full-size White Fedora mark.
+- Replaced third-party file opener with native Android FileProvider intent bridge for PDF and audio files.
+- Added in-app video playback and unified photo/video swipe viewer.
