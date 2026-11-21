@@ -1,11 +1,9 @@
-FreeDataDiet Mobile 1.6.10 updates the app branding to the new segmented treemap icon design with full-size adaptive Android launcher icons and locks the CI build environment to Flutter 3.47.7.
+FreeDataDiet Mobile 1.6.11 refines the White Fedora vertical alignment across the app icon and Android adaptive launcher mipmaps to match the desktop suite.
 
-## What is New in 1.6.10
+## What is New in 1.6.11
 
-### Updated Branding & Adaptive Icons
-* **Segmented Treemap Logo**: Updated the app icon, SVG vector master, and Play Store graphic to match the new FreeDataDiet segmented treemap identity.
-* **Full-Size Android Adaptive Icons**: Separated the full-bleed treemap background layer from the full-size White Fedora foreground across all densities (`mdpi` through `xxxhdpi`) so the hat keeps its bold size inside circle, squircle, and rounded-square launcher masks.
-* **Reproducible CI Builds**: Pinned Flutter 3.47.7 in the GitHub Actions release workflow to prevent breaking changes from unpinned channel updates.
+### Branding Alignment
+* **Centered Fedora Alignment**: Shifted the White Fedora transform center to `(256, 248)` in the vector master and regenerated `app_icon.png`, `playstore-icon.png`, and all Android launcher mipmaps (`mdpi` through `xxxhdpi`).
 
 ## Core Features
 * **Disk Explorer**: Visual size bars, fast column sorting, pinch-to-zoom multiline filenames, and drag-to-select.
