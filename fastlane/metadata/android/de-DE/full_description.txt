@@ -1,9 +1,9 @@
-FreeDataDiet ist ein schneller, privater Speicher- und App-Cache-Analyzer fuer Android. Finde grosse Dateien, leere ueberfuellte App-Caches und entferne exakte Duplikate komplett ohne Werbung und Tracking.
+FreeDataDiet ist ein schneller, 100% offline arbeitender Speicher-, Duplikat- und App-Cache-Analyzer fuer Android. Die App fordert keine Internet-Berechtigung an und enthaelt weder Werbung noch Telemetrie.
 
-Funktionen:
-- Disk Explorer: Uebersichtliche Groessenbalken, Spaltensortierung, Pinch-to-Zoom fuer Dateinamen und Mehrfachauswahl per Wischgeste.
-- App-Diaet: Zeigt installierte Apps sortiert nach Gesamtgroesse, App-Daten und Cache mit direktem Sprung zu den Systemeinstellungen.
-- Duplikat-Finder: Rekursive Unterordner-Gruppierung und zweistufige SHA-256-Erkennung fuer exakte Duplikate.
-- Integrierte Medienvorschau: Hardware-beschleunigte Videowiedergabe und Wischgesten fuer Fotos und Videos sowie sicheres Oeffnen von Dokumenten und Audio ueber Android FileProvider.
-- Externe Speicher: Unterstuetzt internen Speicher, microSD-Karten und USB-OTG-Laufwerke.
-- 100% Privat: Fordert keine Internet-Berechtigung an, enthaelt keine Werbung und sammelt keinerlei Telemetrie.
+Was FreeDataDiet von DiskUsage, Storage Space oder SD Maid SE unterscheidet:
+- Flacher Rekursiv-Modus (Alle Unterordner): Zeigt alle Dateien eines Verzeichnisbaums in einer einzigen sortierbaren Liste (nach Groesse, Datum, Name), um sofort die groessten Dateien oder Duplikate ohne separaten Scan zu finden.
+- Konfigurierbare Duplikat-Engine + 2-Pass-SHA-256: Unabhaengige Vergleichsregeln (Groesse, Name, Zeitstempel, Hash) kombiniert mit zweistufiger SHA-256-Pruefung im Background-Isolate (4-KB-Prefix + 64-KB-Streaming), Unterordner-Gruppierung, Keep-1st und Ordner-Assistent.
+- Anpassbare Ausschlussregeln & Systemschutz: Ueberspringt standardmaessig .git, .thumbnails, .cache und Android/data, erlaubt eigene Ausschlussmuster und schuetzt System- und Android-Ordner vor Loeschung.
+- Blitzschnelle Filter & Pinch-to-Zoom-UI: Kategorien- und Dateiendungs-Filter, Drag-to-Select, stufenlose UI-Skalierung (0.8x bis 1.6x) fuer mehrzeilige Dateinamen und 3 Balken-Skalierungsmodi.
+- App-Diaet mit Direktsprung in Systemeinstellungen: Zeigt App-Groesse, Daten und Cache ueber native Android-Statistiken und springt direkt zum Cache-Leeren.
+- Integrierte Offline-Foto/Video-Wischvorschau vor dem Loeschen.

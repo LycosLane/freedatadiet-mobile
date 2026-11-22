@@ -1,9 +1,9 @@
-FreeDataDiet is a fast, private disk usage and app-cache analyzer for Android. Find large files, clear bloated app caches, and remove exact duplicates with zero ads and zero tracking.
+FreeDataDiet is a fast, 100% offline disk usage, duplicate finder, and app-cache analyzer for Android. It requests no internet permission, contains zero ads, and collects zero telemetry.
 
-Features:
-- Disk Explorer: Visual size bars, column sorting, pinch-to-zoom multiline filenames, and drag-to-select.
-- App Diet: View installed apps sorted by total size, app data, and cache, and jump straight to system settings to clear cache.
-- Duplicate Cleaner: Recursive subfolder grouping and two-pass SHA-256 duplicate detection.
-- Built-In Media Preview: Hardware-accelerated video playback and unified photo/video swiping, plus native FileProvider intent opening for documents and audio.
-- External Storage Support: Analyze internal storage, micro-SD cards, and USB OTG drives.
-- 100% Private: Requests no internet permission, contains no ads, and collects no telemetry.
+What makes FreeDataDiet different from DiskUsage, Storage Space, or SD Maid SE:
+- Flat Recursive Subfolder Mode: Flatten an entire directory tree into one sortable table (by Size, Date, or Name) to spot the largest files or duplicates across all subfolders immediately.
+- Configurable Multi-Criteria Duplicate Engine: Toggle independent match rules (Size, Name, Timestamp, Hash) plus two-pass background-isolate SHA-256 verification (4 KB prefix pre-filter + 64 KB streaming SHA-256) with subfolder grouping, 1-tap Keep 1st, and a Folder Assistant.
+- Editable Exclusion Rules & System Protection: Skip .git, .thumbnails, .cache, and Android/data by default, add custom folder exclusions, and rely on built-in path protection for system and Android directories.
+- Instant Tap-to-Filter & Pinch-to-Zoom UI: Filter by category or file extension in one tap, drag-to-select multiple files, scale the UI (0.8x to 1.6x) with multiline filenames, and switch between 3 visual bar scaling modes.
+- App Diet with Native Cache Settings Jump: Inspect app footprint, data, and cache sizes via native Android stats and jump directly to each app's system settings to clear cache.
+- Built-in Offline Photo/Video Swipe Preview: Inspect photos and videos full-screen before deleting.
