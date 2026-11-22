@@ -1,0 +1,2 @@
+- Verschluesselten AGP-Dependency-Block (dependenciesInfo) fuer saubere F-Droid- und IzzyOnDroid-Release-APKs deaktiviert.
+- Fastlane-Store-Beschreibungen (en-US, de-DE) um Alleinstellungsmerkmale der Duplikat-Engine, Ausschlussregeln und Offline-Funktionen erweitert.

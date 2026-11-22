@@ -1,0 +1,2 @@
+- Disabled AGP encrypted dependency metadata block (dependenciesInfo) for clean F-Droid and IzzyOnDroid release APKs.
+- Expanded Fastlane store descriptions (en-US, de-DE) to highlight unique duplicate-engine, exclusion, and offline features.
