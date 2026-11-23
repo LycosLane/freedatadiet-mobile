@@ -86,7 +86,15 @@ Download and install the latest signed APK from the [**GitHub Releases**](https:
 
 > **Android 14/15 note:** If Usage Access is grayed out after sideloading directly from a browser, open **App info -> three-dot menu (top right) -> Allow restricted settings**, then enable Usage Access.
 
-### Option 2: Automatic Updates with Obtainium
+### Option 2: F-Droid / Droid-ify / Neo Store (Recommended)
+Add the LycosLane F-Droid repository for 1-tap installation and automatic updates:
+
+1. Install **F-Droid**, **Droid-ify**, or **Neo Store** on your Android device.
+2. Open **Repositories -> Add repository** and paste this URL:
+   `https://lycoslane.github.io/fdroid/repo`
+3. Refresh repositories, search for **FreeDataDiet**, and tap **Install**.
+
+### Option 3: Automatic Updates with Obtainium
 [Obtainium](https://github.com/ImranR98/Obtainium/releases) lets you install and update Android apps directly from GitHub Releases with one tap:
 
 1. Install Obtainium from its [GitHub Releases](https://github.com/ImranR98/Obtainium/releases) page (Obtainium can also track and update itself automatically).
