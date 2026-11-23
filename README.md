@@ -79,6 +79,23 @@ Filter what you see and clean redundant files.
 
 ---
 
+## Installation
+
+### Option 1: Direct APK Download
+Download and install the latest signed APK from the [**GitHub Releases**](https://github.com/LycosLane/freedatadiet-mobile/releases) page.
+
+> **Android 14/15 note:** If Usage Access is grayed out after sideloading directly from a browser, open **App info -> three-dot menu (top right) -> Allow restricted settings**, then enable Usage Access.
+
+### Option 2: Automatic Updates with Obtainium
+[Obtainium](https://github.com/ImranR98/Obtainium/releases) lets you install and update Android apps directly from GitHub Releases with one tap:
+
+1. Install Obtainium from its [GitHub Releases](https://github.com/ImranR98/Obtainium/releases) page (Obtainium can also track and update itself automatically).
+2. Open Obtainium, tap **Add App**, and paste this repository URL:
+   `https://github.com/LycosLane/freedatadiet-mobile`
+3. Tap **Add**, then **Install**. Future releases will appear automatically with a 1-tap **Update** button.
+
+---
+
 ## Build from Source
 
 ```bash
